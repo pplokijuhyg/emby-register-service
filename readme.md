@@ -1,3 +1,4 @@
+## 这个工具是我使用Google Gemini 2.5写出来的，只是能用的水平，方便分享自己的emby服务给朋友去注册
 ## 使用方法
 1. 自己构建出docker镜像： `docker build -t emby-register-service .` 然后参考下面的示例编写docker-compose.yml
 2. 执行 `python3 -c "import secrets; print(secrets.token_hex(32))"` 生成签名的密钥填到 FLASK_SECRET_KEY 环境变量
