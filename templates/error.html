@@ -1,0 +1,11 @@
+{% extends 'layout.html' %}
+{% block title %}错误{% endblock %}
+{% block content %}
+<div class="card border-danger mt-4">
+    <div class="card-body text-center">
+        <h3 class="card-title text-danger">😕 操作失败</h3>
+        <p class="fs-5 mt-3">{{ error_message }}</p>
+        <p class="text-muted">请联系管理员获取一个新的有效链接。</p>
+    </div>
+</div>
+{% endblock %}

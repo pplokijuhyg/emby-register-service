@@ -1,0 +1,31 @@
+{% extends 'layout.html' %}
+{% block title %}Emby 账号注册{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title text-center">注册 Emby 账号</h3>
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        <p class="text-muted">请输入您希望使用的用户名，密码将自动生成。</p>
+        <form method="post">
+            <input type="hidden" name="token" value="{{ token }}">
+            <div class="mb-3">
+                <label for="username" class="form-label">用户名</label>
+                <input type="text" 
+                       class="form-control" 
+                       id="username" 
+                       name="username" 
+                       required 
+                       minlength="4" 
+                       maxlength="32" 
+                       pattern="[a-zA-Z0-9]+"
+                       title="用户名只能包含英文字母和数字，长度为4-32位。">
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">注册</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

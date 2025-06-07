@@ -1,0 +1,25 @@
+{% extends 'layout.html' %}
+{% block title %}注册成功{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body text-center">
+        <h3 class="card-title text-success">🎉 注册成功！</h3>
+        <p>您的Emby账号已创建。请妥善保管以下信息。</p>
+        
+        {# The user info box now includes the server URL #}
+        <div class="alert alert-info text-start">
+            {# NEW: Display the Emby Server URL #}
+            <p class="mb-1"><strong>服务器地址:</strong> <br><code class="fs-6">{{ emby_url }}</code></p>
+            <hr>
+            <p class="mb-1"><strong>用户名:</strong> {{ username }}</p>
+            <p class="mb-0"><strong>密码:</strong> {{ password }}</p>
+        </div>
+        
+        <div class="alert alert-warning">
+            <strong>请立即保存您的密码！</strong> 此密码仅显示一次，离开此页面后将无法找回。
+        </div>
+        
+        <a href="{{ emby_url }}" class="btn btn-primary" target="_blank">前往 Emby 登录</a>
+    </div>
+</div>
+{% endblock %}
