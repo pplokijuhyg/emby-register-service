@@ -10,6 +10,7 @@ from functools import wraps
 import requests
 from flask import (Flask, flash, redirect, render_template, request, session,
                    url_for)
+from flask_paginate import Pagination, get_page_args
 
 # --- App Initialization ---
 app = Flask(__name__)
@@ -20,6 +21,7 @@ app.config['SECRET_KEY'] = SECRET_KEY_FROM_ENV
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
 
 DATABASE = '/app/data/tokens.db'
+PER_PAGE = 10
 
 # --- Environment Variable Loading ---
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
@@ -133,10 +135,28 @@ def logout():
 @login_required
 def admin():
     db = get_db()
-    # 查询时包含了新的 registered_username 字段
-    tokens_from_db = db.execute('SELECT id, token, is_used, registered_username FROM tokens ORDER BY created_at DESC').fetchall()
-    db.close()
     
+    # 3. Get total count for pagination object
+    total = db.execute('SELECT COUNT(*) FROM tokens').fetchone()[0]
+
+    # 4. Get current page from request args (e.g., /admin?page=2)
+    page, per_page, offset = get_page_args(page_parameter='page', 
+                                           per_page_parameter='per_page', 
+                                           per_page=PER_PAGE)
+
+    # 5. Fetch only the records for the current page
+    tokens_from_db = db.execute(
+        'SELECT id, token, is_used, registered_username FROM tokens ORDER BY created_at DESC LIMIT ? OFFSET ?',
+        (per_page, offset)
+    ).fetchall()
+    db.close()
+
+    # 6. Create the pagination object
+    pagination = Pagination(page=page, per_page=per_page, total=total,
+                            css_framework='bootstrap5',
+                            record_name='tokens')
+
+    # Process the (now smaller) list of tokens
     processed_tokens = []
     for token_row in tokens_from_db:
         processed_tokens.append({
@@ -146,7 +166,13 @@ def admin():
             'username': token_row['registered_username']
         })
         
-    return render_template('admin.html', tokens=processed_tokens, public_access_url=PUBLIC_ACCESS_URL)
+    # 7. Pass both tokens and pagination object to the template
+    return render_template(
+        'admin.html',
+        tokens=processed_tokens,
+        pagination=pagination,
+        public_access_url=PUBLIC_ACCESS_URL
+    )
 
 @app.route('/admin/generate', methods=['POST'])
 @login_required
