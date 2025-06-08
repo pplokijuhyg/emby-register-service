@@ -56,17 +56,21 @@ def init_db():
     with app.app_context():
         db = get_db()
         cursor = db.cursor()
+
+        # 直接创建包含所有列的最终表结构
         cursor.execute(
             '''
             CREATE TABLE IF NOT EXISTS tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 token TEXT NOT NULL UNIQUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_used BOOLEAN DEFAULT 0
+                is_used BOOLEAN DEFAULT 0,
+                registered_username TEXT
             )
             '''
         )
         db.commit()
+
 
 # --- Decorators ---
 def login_required(f):
@@ -129,9 +133,19 @@ def logout():
 @login_required
 def admin():
     db = get_db()
-    tokens_from_db = db.execute('SELECT * FROM tokens ORDER BY created_at DESC').fetchall()
+    # 查询时包含了新的 registered_username 字段
+    tokens_from_db = db.execute('SELECT id, token, is_used, registered_username FROM tokens ORDER BY created_at DESC').fetchall()
     db.close()
-    processed_tokens = [{'id': r['id'], 'full_signed_token': _generate_signed_token(r['token']), 'is_used': r['is_used']} for r in tokens_from_db]
+    
+    processed_tokens = []
+    for token_row in tokens_from_db:
+        processed_tokens.append({
+            'id': token_row['id'],
+            'full_signed_token': _generate_signed_token(token_row['token']),
+            'is_used': token_row['is_used'],
+            'username': token_row['registered_username']
+        })
+        
     return render_template('admin.html', tokens=processed_tokens, public_access_url=PUBLIC_ACCESS_URL)
 
 @app.route('/admin/generate', methods=['POST'])
@@ -171,7 +185,14 @@ def emby_register():
         if not user_id:
             db.close()
             return render_template('register.html', token=full_token_str, error=error_msg)
-        db.execute('UPDATE tokens SET is_used = 1 WHERE id = ?', (token_data['id'],)); db.commit(); db.close()
+        
+        db.execute(
+            'UPDATE tokens SET is_used = 1, registered_username = ? WHERE id = ?',
+            (username, token_data['id'])
+        )
+        db.commit()
+        db.close()
+        
         return render_template('success.html', username=username, password=password, emby_url=EMBY_SERVER_URL)
     db.close()
     return render_template('register.html', token=full_token_str)

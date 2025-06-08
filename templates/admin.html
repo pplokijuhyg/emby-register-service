@@ -29,26 +29,34 @@
             <table class="table table-striped table-hover align-middle">
                 <thead>
                     <tr>
-                        <th scope="col">注册链接</th>
+                        <th scope="col" style="width: 80%;">注册链接</th>
                         <th scope="col">状态</th>
-                        <th scope="col" style="width: 15%; white-space: nowrap;">操作</th>
+                        <th scope="col" style="width: 6ch; white-space: nowrap;">注册用户</th>
+                        <th scope="col" style="width: 1%; white-space: nowrap;">*操作*</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for token in tokens %}
                     <tr>
                         <td style="word-break: break-all;">
-                            {{ public_access_url }}/emby?token={{ token.full_signed_token }}
+                            <code>{{ public_access_url }}/emby?token={{ token.full_signed_token }}</code>
                         </td>
                         <td>
                             {% if token.is_used %}
-                                <span class="badge bg-secondary">已使用</span>
+                                <span class="badge bg-success">已用</span>
                             {% else %}
-                                <span class="badge bg-primary">未使用</span>
+                                <span class="badge bg-primary">未用</span>
+                            {% endif %}
+                        </td>
+                        <td style="width: 6ch; word-break: break-all;">
+                            {% if token.username %}
+                                {{ token.username }}
+                            {% else %}
+                                <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex flex-column gap-2">
                                 <button class="btn btn-sm btn-outline-info" 
                                         onclick="copyTextToClipboard('{{ public_access_url }}/emby?token={{ token.full_signed_token }}', this)">
                                     复制
@@ -62,7 +70,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3" class="text-center">没有可用的 Token。</td>
+                        <td colspan="4" class="text-center">没有可用的 Token。</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -71,11 +79,8 @@
     </div>
 </div>
 
-{# NEW: Robust JavaScript with fallback for insecure (http) contexts #}
 <script>
 function copyTextToClipboard(textToCopy, buttonElement) {
-    // --- Primary Method: Modern, Secure Clipboard API ---
-    // Check if the modern API is available and we're in a secure context (https or localhost)
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(textToCopy).then(() => {
             showCopyFeedback(buttonElement, true);
@@ -84,19 +89,14 @@ function copyTextToClipboard(textToCopy, buttonElement) {
             showCopyFeedback(buttonElement, false);
         });
     } else {
-        // --- Fallback Method: Classic, universally supported execCommand ---
         const textArea = document.createElement("textarea");
         textArea.value = textToCopy;
-        
-        // Make the textarea invisible
         textArea.style.position = "fixed";
         textArea.style.top = "-9999px";
         textArea.style.left = "-9999px";
-
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-
         try {
             const successful = document.execCommand('copy');
             showCopyFeedback(buttonElement, successful);
@@ -104,7 +104,6 @@ function copyTextToClipboard(textToCopy, buttonElement) {
             console.error('Fallback copy failed: ', err);
             showCopyFeedback(buttonElement, false);
         }
-
         document.body.removeChild(textArea);
     }
 }
@@ -112,16 +111,14 @@ function copyTextToClipboard(textToCopy, buttonElement) {
 function showCopyFeedback(buttonElement, isSuccess) {
     const originalText = buttonElement.innerHTML;
     if (isSuccess) {
-        buttonElement.innerHTML = '已复制!';
+        buttonElement.innerHTML = '复制';
         buttonElement.classList.remove('btn-outline-info');
         buttonElement.classList.add('btn-success');
     } else {
-        buttonElement.innerHTML = '失败!';
+        buttonElement.innerHTML = '失败';
         buttonElement.classList.remove('btn-outline-info');
         buttonElement.classList.add('btn-danger');
     }
-
-    // Revert the button back to its original state after 2 seconds
     setTimeout(() => {
         buttonElement.innerHTML = originalText;
         if (isSuccess) {

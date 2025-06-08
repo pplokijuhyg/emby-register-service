@@ -14,9 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 5. 复制所有应用代码到工作目录
 COPY . .
+RUN chmod +x entrypoint.sh
 
 # 6. 暴露端口
 EXPOSE 5000
 
 # 7. 容器启动时运行的命令
-CMD ["gunicorn", "--worker-class", "gevent", "--workers", "4", "--bind", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["./entrypoint.sh"]
