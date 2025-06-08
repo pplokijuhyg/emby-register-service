@@ -33,8 +33,8 @@ services:
 ```
 
 ### Token管理界面
-![image](https://i.111666.best/image/QT0CbIamuPgloaL1Veblym.png)
+![PixPin_2025-06-08_16-24-41.png](https://image.dooo.ng/c/2025/06/08/68454b033e0d3.webp)
 
 ### 用户注册界面
-![image](https://i.111666.best/image/aAHnHUANMPaoW0Mh8Nh6w0.png)
+![PixPin_2025-06-08_16-25-49.png](https://image.dooo.ng/c/2025/06/08/68454b02d33ec.webp)
 
