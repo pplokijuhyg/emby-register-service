@@ -39,7 +39,7 @@
                     {% for token in tokens %}
                     <tr>
                         <td style="word-break: break-all;">
-                            <code>{{ public_access_url }}/emby?token={{ token.full_signed_token }}</code>
+                            {{ public_access_url }}/emby?token={{ token.full_signed_token }}
                         </td>
                         <td>
                             {% if token.is_used %}
