@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const userAgent = navigator.userAgent.toLowerCase();
 
     // 2. Check if it contains 'qq'
-    if (userAgent.includes('qq')) {
+    if (userAgent.includes('qq') || userAgent.includes('micromessenger')) {
         // 3. If it does, create the warning alert element
         const warningDiv = document.createElement('div');
         warningDiv.className = 'alert alert-warning d-flex align-items-center';
