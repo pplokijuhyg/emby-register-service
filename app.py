@@ -9,8 +9,10 @@ from datetime import datetime, timedelta
 from functools import wraps
 import requests
 from flask import (Flask, flash, redirect, render_template, request, session,
-                   url_for)
+                   url_for, Response)
 from flask_paginate import Pagination, get_page_args
+import csv
+import io
 
 # --- App Initialization ---
 app = Flask(__name__)
@@ -177,9 +179,48 @@ def admin():
 @app.route('/admin/generate', methods=['POST'])
 @login_required
 def generate_token():
-    nonce = secrets.token_urlsafe(16); db = get_db()
-    db.execute('INSERT INTO tokens (token) VALUES (?)', (nonce,)); db.commit(); db.close()
-    flash(f'新 Token 已生成!', 'success'); return redirect(url_for('admin'))
+    db = get_db()
+    # 生成100个token
+    for _ in range(100):
+        nonce = secrets.token_urlsafe(16)
+        db.execute('INSERT INTO tokens (token) VALUES (?)', (nonce,))
+    db.commit()
+    db.close()
+    flash(f'已成功生成100个新Token!', 'success')
+    return redirect(url_for('admin'))
+
+@app.route('/admin/export_unused', methods=['GET'])
+@login_required
+def export_unused_tokens():
+    db = get_db()
+    unused_tokens = db.execute(
+        'SELECT token FROM tokens WHERE is_used = 0 ORDER BY created_at DESC'
+    ).fetchall()
+    db.close()
+    
+    if not unused_tokens:
+        flash('没有未使用的Token可导出。', 'warning')
+        return redirect(url_for('admin'))
+    
+    # 生成CSV格式的响应
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Token', '注册链接'])
+    
+    for token_row in unused_tokens:
+        token = token_row['token']
+        signed_token = _generate_signed_token(token)
+        register_url = f"{PUBLIC_ACCESS_URL}/emby?token={signed_token}"
+        writer.writerow([token, register_url])
+    
+    output.seek(0)
+    
+    response = Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=unused_tokens.csv'}
+    )
+    return response
 
 @app.route('/admin/delete/<int:token_id>', methods=['POST'])
 @login_required
