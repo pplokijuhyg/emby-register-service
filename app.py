@@ -138,27 +138,41 @@ def logout():
 def admin():
     db = get_db()
     
-    # 3. Get total count for pagination object
-    total = db.execute('SELECT COUNT(*) FROM tokens').fetchone()[0]
+    search_query = request.args.get('q', '').strip()
+    
+    # 基于是否有搜索关键词构建SQL
+    if search_query:
+        like_pattern = f"%{search_query}%"
+        total = db.execute(
+            'SELECT COUNT(*) FROM tokens WHERE token LIKE ? OR registered_username LIKE ?',
+            (like_pattern, like_pattern)
+        ).fetchone()[0]
+    else:
+        total = db.execute('SELECT COUNT(*) FROM tokens').fetchone()[0]
 
-    # 4. Get current page from request args (e.g., /admin?page=2)
     page, per_page, offset = get_page_args(page_parameter='page', 
                                            per_page_parameter='per_page', 
                                            per_page=PER_PAGE)
 
-    # 5. Fetch only the records for the current page
-    tokens_from_db = db.execute(
-        'SELECT id, token, is_used, registered_username FROM tokens ORDER BY created_at DESC LIMIT ? OFFSET ?',
-        (per_page, offset)
-    ).fetchall()
+    if search_query:
+        tokens_from_db = db.execute(
+            'SELECT id, token, is_used, registered_username FROM tokens WHERE token LIKE ? OR registered_username LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+            (like_pattern, like_pattern, per_page, offset)
+        ).fetchall()
+    else:
+        tokens_from_db = db.execute(
+            'SELECT id, token, is_used, registered_username FROM tokens ORDER BY created_at DESC LIMIT ? OFFSET ?',
+            (per_page, offset)
+        ).fetchall()
     db.close()
 
     # 6. Create the pagination object
     pagination = Pagination(page=page, per_page=per_page, total=total,
                             css_framework='bootstrap5',
-                            record_name='tokens')
+                            record_name='tokens',
+                            args={'q': search_query} if search_query else None)
 
-    # Process the (now smaller) list of tokens
+    # Process tokens
     processed_tokens = []
     for token_row in tokens_from_db:
         processed_tokens.append({
@@ -167,27 +181,44 @@ def admin():
             'is_used': token_row['is_used'],
             'username': token_row['registered_username']
         })
-        
-    # 7. Pass both tokens and pagination object to the template
+
     return render_template(
         'admin.html',
         tokens=processed_tokens,
         pagination=pagination,
-        public_access_url=PUBLIC_ACCESS_URL
+        public_access_url=PUBLIC_ACCESS_URL,
+        search_query=search_query
     )
 
 @app.route('/admin/generate', methods=['POST'])
 @login_required
 def generate_token():
     db = get_db()
-    # 生成100个token
+    generated_tokens = []
+    # 批量生成100个token
     for _ in range(100):
         nonce = secrets.token_urlsafe(16)
+        generated_tokens.append(nonce)
         db.execute('INSERT INTO tokens (token) VALUES (?)', (nonce,))
     db.commit()
     db.close()
-    flash(f'已成功生成100个新Token!', 'success')
-    return redirect(url_for('admin'))
+
+    # 构造CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Token', '注册链接'])
+    for token in generated_tokens:
+        signed = _generate_signed_token(token)
+        register_url = f"{PUBLIC_ACCESS_URL}/emby?token={signed}"
+        writer.writerow([token, register_url])
+    output.seek(0)
+
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=generated_tokens_{timestamp}.csv'}
+    )
 
 @app.route('/admin/export_unused', methods=['GET'])
 @login_required

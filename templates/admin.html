@@ -29,6 +29,15 @@
             </div>
         </div>
         
+        <form method="get" action="{{ url_for('admin') }}" class="row g-2 mb-4">
+            <div class="col-md-9">
+                <input type="text" name="q" class="form-control" placeholder="搜索 Token 或用户名" value="{{ search_query }}">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-outline-primary w-100">搜索</button>
+            </div>
+        </form>
+        
         <h5 class="mt-4">有效 Token 列表
             {% if public_access_url == 'YOUR_DOMAIN.com' %}
                 <small class="text-danger">(请设置 PUBLIC_ACCESS_URL 环境变量以修正域名)</small>
