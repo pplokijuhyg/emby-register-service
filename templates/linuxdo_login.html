@@ -1,0 +1,39 @@
+{% extends 'layout.html' %}
+{% block title %}Linux.do 登录{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title text-center">Linux.do 登录</h3>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="text-center">
+            <p class="text-muted mb-4">使用您的 Linux.do 论坛账号登录</p>
+            
+            <div class="d-grid gap-3">
+                <a href="{{ url_for('linuxdo_login') }}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-person-circle me-2"></i>
+                    使用 Linux.do 账号登录
+                </a>
+                
+                <div class="text-muted">
+                    <small>
+                        登录后将根据您的论坛等级获得相应的注册权限：<br>
+                        • 0级用户：1个账号<br>
+                        • 1级用户：2个账号<br>
+                        • 2级用户：3个账号<br>
+                        • 3级用户：5个账号<br>
+                        • 4级用户：10个账号
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

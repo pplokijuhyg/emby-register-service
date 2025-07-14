@@ -1,0 +1,91 @@
+{% extends 'layout.html' %}
+{% block title %}用户仪表板{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3 class="card-title mb-0">欢迎，{{ user.name }}！</h3>
+                        <a href="{{ url_for('linuxdo_logout') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-box-arrow-right me-1"></i>退出登录
+                        </a>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">用户信息</h6>
+                                    <p class="mb-1"><strong>用户名：</strong>{{ user.username }}</p>
+                                    <p class="mb-1"><strong>昵称：</strong>{{ user.name }}</p>
+                                    <p class="mb-1"><strong>信任等级：</strong>{{ user.trust_level }}级</p>
+                                    <p class="mb-0"><strong>邮箱：</strong>{{ user.email or '未设置' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">注册统计</h6>
+                                    <p class="mb-1"><strong>已注册：</strong>{{ current_count }} 个账号</p>
+                                    <p class="mb-1"><strong>可注册：</strong>{{ max_allowed }} 个账号</p>
+                                    <p class="mb-0">
+                                        <strong>剩余：</strong>
+                                        {% if can_register %}
+                                            <span class="text-success">{{ max_allowed - current_count }} 个</span>
+                                        {% else %}
+                                            <span class="text-danger">0 个</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if can_register %}
+                    <div class="mt-3">
+                        <a href="{{ url_for('emby_register') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i>注册新账号
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="mt-3">
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            您已达到注册上限，无法注册更多账号。
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">注册历史</h5>
+                    {% if registrations %}
+                        <div class="list-group list-group-flush">
+                            {% for reg in registrations %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ reg.emby_username }}</h6>
+                                        <small class="text-muted">{{ reg.registered_at }}</small>
+                                    </div>
+                                    <span class="badge bg-success">已注册</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">暂无注册记录</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

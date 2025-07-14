@@ -4,9 +4,29 @@
 <div class="card">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="card-title mb-0">Token 管理</h3>
+            <h3 class="card-title mb-0">后台管理</h3>
             <a href="{{ url_for('logout') }}" class="btn btn-sm btn-secondary">退出登录</a>
         </div>
+
+        <!-- 导航标签 -->
+        <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tokens-tab" data-bs-toggle="tab" data-bs-target="#tokens" type="button" role="tab">
+                    Token 管理
+                </button>
+            </li>
+            {% if config.get('LINUXDO_OAUTH_ENABLED', false) %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+                    Linux.do 用户管理
+                </button>
+            </li>
+            {% endif %}
+        </ul>
+
+        <!-- Token 管理标签页 -->
+        <div class="tab-content" id="adminTabContent">
+            <div class="tab-pane fade show active" id="tokens" role="tabpanel">
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -99,7 +119,57 @@
         <div class="d-flex justify-content-center mt-4">
             {{ pagination.links }}
         </div>
+            </div>
 
+            <!-- Linux.do 用户管理标签页 -->
+            {% if config.get('LINUXDO_OAUTH_ENABLED', false) %}
+            <div class="tab-pane fade" id="users" role="tabpanel">
+                <h5 class="mb-3">Linux.do 用户列表</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">用户名</th>
+                                <th scope="col">昵称</th>
+                                <th scope="col">信任等级</th>
+                                <th scope="col">邮箱</th>
+                                <th scope="col">注册数量</th>
+                                <th scope="col">最后登录</th>
+                                <th scope="col">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in linuxdo_users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.name }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if user.trust_level >= 3 else 'warning' if user.trust_level >= 1 else 'secondary' }}">
+                                        {{ user.trust_level }}级
+                                    </span>
+                                </td>
+                                <td>{{ user.email or '—' }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ user.registration_count }}/{{ user.max_allowed }}</span>
+                                </td>
+                                <td>{{ user.last_login }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewUserRegistrations('{{ user.id }}')">
+                                        查看注册记录
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center">暂无 Linux.do 用户。</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -152,6 +222,12 @@ function showCopyFeedback(buttonElement, isSuccess) {
         }
         buttonElement.classList.add('btn-outline-info');
     }, 2000);
+}
+
+function viewUserRegistrations(userId) {
+    // 这里可以添加查看用户注册记录的功能
+    // 可以弹出一个模态框或者跳转到专门的页面
+    alert('查看用户注册记录功能待实现');
 }
 </script>
 {% endblock %}

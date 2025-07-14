@@ -1,0 +1,97 @@
+{% extends 'layout.html' %}
+{% block title %}注册 Emby 账号{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="card-title mb-0">注册 Emby 账号</h3>
+            <a href="{{ url_for('linuxdo_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>返回仪表板
+            </a>
+        </div>
+        
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-8">
+                <p class="text-muted">请输入您希望使用的用户名，密码将自动生成。</p>
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               required 
+                               minlength="4" 
+                               maxlength="32" 
+                               pattern="[a-zA-Z0-9]+"
+                               title="用户名只能包含英文字母和数字，长度为4-32位。"
+                               placeholder="请输入4-32位英文字母和数字">
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i>注册账号
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title">注册说明</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <i class="bi bi-info-circle text-primary me-1"></i>
+                                用户名长度：4-32位
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-info-circle text-primary me-1"></i>
+                                只能包含英文字母和数字
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-info-circle text-primary me-1"></i>
+                                密码将自动生成
+                            </li>
+                            <li class="mb-0">
+                                <i class="bi bi-info-circle text-primary me-1"></i>
+                                注册后请妥善保管账号信息
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// This function runs automatically after the page content has loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Get the browser's User-Agent string in lower case
+    const userAgent = navigator.userAgent.toLowerCase();
+
+    // 2. Check if it contains 'qq'
+    if (userAgent.includes('qq') || userAgent.includes('micromessenger')) {
+        // 3. If it does, create the warning alert element
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'alert alert-warning d-flex align-items-center';
+        warningDiv.setAttribute('role', 'alert');
+        warningDiv.innerHTML = `
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>
+                检测到您可能正在使用QQ或微信内置浏览器。请您复制链接到 <strong>Chrome</strong> 或 <strong>Safari</strong> 浏览器中打开。
+            </div>
+        `;
+
+        // 4. Find the target location and insert the warning at the top
+        const cardBody = document.querySelector('.card-body');
+        // Insert the warning message right after the title
+        cardBody.insertBefore(warningDiv, cardBody.children[1]);
+    }
+});
+</script>
+{% endblock %} 
