@@ -548,6 +548,31 @@ def delete_token(token_id):
     db = get_db(); db.execute('DELETE FROM tokens WHERE id = ?', (token_id,)); db.commit(); db.close()
     flash('Token 已成功删除。', 'info'); return redirect(url_for('admin'))
 
+@app.route('/admin/user_registrations')
+@login_required
+def admin_user_registrations():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return {"success": False, "msg": "缺少用户ID"}, 400
+    db = get_db()
+    regs = db.execute(
+        '''SELECT emby_username, emby_password, registered_at
+           FROM user_registrations
+           WHERE linuxdo_user_id = ?
+           ORDER BY registered_at DESC''',
+        (user_id,)
+    ).fetchall()
+    db.close()
+    data = [
+        {
+            "emby_username": r["emby_username"],
+            "emby_password": r["emby_password"],
+            "registered_at": r["registered_at"]
+        }
+        for r in regs
+    ]
+    return {"success": True, "data": data}
+
 @app.route('/linuxdo/reset_password', methods=['POST'])
 @linuxdo_login_required
 def linuxdo_reset_password():

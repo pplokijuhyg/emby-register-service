@@ -173,6 +173,21 @@
     </div>
 </div>
 
+<!-- 用户注册记录模态框 -->
+<div class="modal fade" id="userRegModal" tabindex="-1" aria-labelledby="userRegModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userRegModalLabel">注册记录</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <div id="userRegTable"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 function copyTextToClipboard(textToCopy, buttonElement) {
     if (navigator.clipboard && window.isSecureContext) {
@@ -225,9 +240,33 @@ function showCopyFeedback(buttonElement, isSuccess) {
 }
 
 function viewUserRegistrations(userId) {
-    // 这里可以添加查看用户注册记录的功能
-    // 可以弹出一个模态框或者跳转到专门的页面
-    alert('查看用户注册记录功能待实现');
+    fetch('/admin/user_registrations?user_id=' + encodeURIComponent(userId))
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            alert('加载失败：' + data.msg);
+            return;
+        }
+        let html = '<table class="table table-striped"><thead><tr><th>用户名</th><th>初始密码</th><th>注册时间</th></tr></thead><tbody>';
+        if (data.data.length === 0) {
+            html += '<tr><td colspan="3" class="text-center">暂无注册记录</td></tr>';
+        } else {
+            for (const reg of data.data) {
+                html += `<tr>
+                    <td>${reg.emby_username}</td>
+                    <td>${reg.emby_password || '-'}</td>
+                    <td>${reg.registered_at}</td>
+                </tr>`;
+            }
+        }
+        html += '</tbody></table>';
+        document.getElementById('userRegTable').innerHTML = html;
+        var modal = new bootstrap.Modal(document.getElementById('userRegModal'));
+        modal.show();
+    })
+    .catch(e => {
+        alert('请求失败');
+    });
 }
 </script>
 {% endblock %}
