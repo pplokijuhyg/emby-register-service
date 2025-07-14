@@ -67,23 +67,29 @@
                 <div class="card-body">
                     <h5 class="card-title">注册历史</h5>
                     {% if registrations %}
-                        <div class="list-group list-group-flush">
-                            <div class="list-group-item">
-                                <div class="row">
-                                    <div class="col"><strong>用户名</strong></div>
-                                    <div class="col"><strong>初始密码</strong></div>
-                                    <div class="col"><strong>注册时间</strong></div>
-                                </div>
-                            </div>
-                            {% for reg in registrations %}
-                            <div class="list-group-item">
-                                <div class="row">
-                                    <div class="col">{{ reg.emby_username }}</div>
-                                    <div class="col">{{ reg.emby_password or '-' }}</div>
-                                    <div class="col">{{ reg.registered_at }}</div>
-                                </div>
-                            </div>
-                            {% endfor %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>用户名</th>
+                                        <th>初始密码</th>
+                                        <th>注册时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for reg in registrations %}
+                                    <tr>
+                                        <td>{{ reg.emby_username }}</td>
+                                        <td>{{ reg.emby_password or '-' }}</td>
+                                        <td>{{ reg.registered_at }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-warning" onclick="resetPassword('{{ reg.emby_username }}', this)">重置密码</button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                     {% else %}
                         <p class="text-muted">暂无注册记录</p>
@@ -94,3 +100,29 @@
     </div>
 </div>
 {% endblock %} 
+<script>
+function resetPassword(username, btn) {
+    if (!confirm('确定要重置该账号密码？')) return;
+    btn.disabled = true;
+    fetch('/linuxdo/reset_password', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'emby_username=' + encodeURIComponent(username)
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        if (data.success) {
+            alert('新密码：' + data.new_password);
+            // 可选：刷新页面以显示新密码
+            location.reload();
+        } else {
+            alert('重置失败：' + data.msg);
+        }
+    })
+    .catch(e => {
+        btn.disabled = false;
+        alert('请求失败');
+    });
+}
+</script> 

@@ -548,6 +548,39 @@ def delete_token(token_id):
     db = get_db(); db.execute('DELETE FROM tokens WHERE id = ?', (token_id,)); db.commit(); db.close()
     flash('Token 已成功删除。', 'info'); return redirect(url_for('admin'))
 
+@app.route('/linuxdo/reset_password', methods=['POST'])
+@linuxdo_login_required
+def linuxdo_reset_password():
+    emby_username = request.form.get('emby_username')
+    if not emby_username:
+        return {"success": False, "msg": "缺少用户名"}, 400
+    db = get_db()
+    reg = db.execute(
+        'SELECT emby_user_id, linuxdo_user_id FROM user_registrations WHERE emby_username = ?',
+        (emby_username,)
+    ).fetchone()
+    if not reg or reg['linuxdo_user_id'] != session['linuxdo_user_id']:
+        db.close()
+        return {"success": False, "msg": "无权重置该账号"}, 403
+    emby_user_id = reg['emby_user_id']
+    # 生成新密码
+    new_password = ''.join(secrets.choice(string.digits) for _ in range(12))
+    # 调用Emby API重置密码
+    headers = {'X-Emby-Token': EMBY_API_KEY, 'Content-Type': 'application/json'}
+    set_password_url = f"{EMBY_SERVER_URL}/Users/{emby_user_id}/Password"
+    password_payload = {"Id": emby_user_id, "NewPw": new_password}
+    try:
+        resp = requests.post(set_password_url, json=password_payload, headers=headers, timeout=10, verify=not DISABLE_SSL_VERIFY)
+        resp.raise_for_status()
+    except Exception as e:
+        db.close()
+        return {"success": False, "msg": f"Emby API调用失败: {e}"}, 500
+    # 更新数据库
+    db.execute('UPDATE user_registrations SET emby_password = ? WHERE emby_username = ?', (new_password, emby_username))
+    db.commit()
+    db.close()
+    return {"success": True, "new_password": new_password}
+
 @app.route('/emby', methods=['GET', 'POST'])
 def emby_register():
     error_msg_template = "您使用的注册链接无效、已被篡改或已过期。"
