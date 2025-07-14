@@ -160,6 +160,7 @@ def init_db():
                 linuxdo_user_id INTEGER,
                 emby_username TEXT NOT NULL,
                 emby_user_id TEXT,
+                emby_password TEXT,
                 registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (linuxdo_user_id) REFERENCES linuxdo_users (id)
             )
@@ -353,7 +354,7 @@ def linuxdo_dashboard():
         
         # 获取用户注册历史
         registrations = db.execute(
-            '''SELECT emby_username, emby_user_id, registered_at 
+            '''SELECT emby_username, emby_user_id, registered_at, emby_password 
                FROM user_registrations 
                WHERE linuxdo_user_id = ? 
                ORDER BY registered_at DESC''',
@@ -582,6 +583,11 @@ def emby_register():
             'UPDATE tokens SET is_used = 1, registered_username = ? WHERE id = ?',
             (username, token_data['id'])
         )
+        # 保存注册信息
+        db.execute(
+            'INSERT INTO user_registrations (linuxdo_user_id, emby_username, emby_user_id, emby_password) VALUES (?, ?, ?, ?)',
+            (None, username, user_id, password)
+        )
         db.commit()
         db.close()
         
@@ -622,8 +628,8 @@ def linuxdo_register():
         
         # 记录注册信息
         db.execute(
-            'INSERT INTO user_registrations (linuxdo_user_id, emby_username, emby_user_id) VALUES (?, ?, ?)',
-            (session['linuxdo_user_id'], username, user_id)
+            'INSERT INTO user_registrations (linuxdo_user_id, emby_username, emby_user_id, emby_password) VALUES (?, ?, ?, ?)',
+            (session['linuxdo_user_id'], username, user_id, password)
         )
         db.commit()
         db.close()

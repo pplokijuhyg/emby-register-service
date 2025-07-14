@@ -68,14 +68,19 @@
                     <h5 class="card-title">注册历史</h5>
                     {% if registrations %}
                         <div class="list-group list-group-flush">
+                            <div class="list-group-item">
+                                <div class="row">
+                                    <div class="col"><strong>用户名</strong></div>
+                                    <div class="col"><strong>初始密码</strong></div>
+                                    <div class="col"><strong>注册时间</strong></div>
+                                </div>
+                            </div>
                             {% for reg in registrations %}
                             <div class="list-group-item">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-1">{{ reg.emby_username }}</h6>
-                                        <small class="text-muted">{{ reg.registered_at }}</small>
-                                    </div>
-                                    <span class="badge bg-success">已注册</span>
+                                <div class="row">
+                                    <div class="col">{{ reg.emby_username }}</div>
+                                    <div class="col">{{ reg.emby_password or '-' }}</div>
+                                    <div class="col">{{ reg.registered_at }}</div>
                                 </div>
                             </div>
                             {% endfor %}
