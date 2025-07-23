@@ -5,7 +5,7 @@
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h3 class="card-title mb-0">后台管理</h3>
-            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-secondary">退出登录</a>
+            <a href="{{ url_for('main.logout') }}" class="btn btn-sm btn-secondary">退出登录</a>
         </div>
 
         <!-- 导航标签 -->
@@ -20,6 +20,9 @@
                 <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
                     Linux.do 用户管理
                 </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" href="{{ url_for('main.admin_requests') }}">剧集申请管理</a>
             </li>
             {% endif %}
         </ul>
@@ -38,18 +41,18 @@
 
         <div class="row mb-4">
             <div class="col-md-6">
-                <form method="post" action="{{ url_for('generate_token') }}" class="d-grid">
+                <form method="post" action="{{ url_for('main.generate_token') }}" class="d-grid">
                     <button type="submit" class="btn btn-success">生成新 Token</button>
                 </form>
             </div>
             <div class="col-md-6">
-                <a href="{{ url_for('export_unused_tokens') }}" class="btn btn-info d-grid">
+                <a href="{{ url_for('main.export_unused_tokens') }}" class="btn btn-info d-grid">
                     <i class="fas fa-download"></i> 导出未用Token
                 </a>
             </div>
         </div>
         
-        <form method="get" action="{{ url_for('admin') }}" class="row g-2 mb-4">
+        <form method="get" action="{{ url_for('main.admin') }}" class="row g-2 mb-4">
             <div class="col-md-9">
                 <input type="text" name="q" class="form-control" placeholder="搜索 Token 或用户名" value="{{ search_query }}">
             </div>
@@ -100,7 +103,7 @@
                                     复制
                                 </button>
                                 
-                                <form class="mb-0" method="post" action="{{ url_for('delete_token', token_id=token.id) }}" onsubmit="return confirm('确定要删除这个Token吗？');">
+                                <form class="mb-0" method="post" action="{{ url_for('main.delete_token', token_id=token.id) }}" onsubmit="return confirm('确定要删除这个Token吗？');">
                                     <button type="submit" class="btn btn-sm btn-danger">删除</button>
                                 </form>
                             </div>
@@ -240,7 +243,7 @@ function showCopyFeedback(buttonElement, isSuccess) {
 }
 
 function viewUserRegistrations(userId) {
-    fetch('/admin/user_registrations?user_id=' + encodeURIComponent(userId))
+    fetch("{{ url_for('main.admin_user_registrations') }}?user_id=" + encodeURIComponent(userId))
     .then(r => r.json())
     .then(data => {
         if (!data.success) {

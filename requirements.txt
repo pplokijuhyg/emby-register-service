@@ -1,6 +1,6 @@
-Flask>=3.1.1
-requests>=2.32.3
-gunicorn>=23.0.0
-gevent>=25.5.1
-flask-paginate>=2024.4.12
-authlib>=1.2.1
+Flask
+requests
+flask-paginate
+authlib
+urllib3
+python-dotenv

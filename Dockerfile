@@ -1,23 +1,30 @@
 # 1. 使用官方的Python轻量级镜像作为基础
 FROM python:3.11-slim
 
-# 2. 设置工作目录
+# 2. 设置代理参数
+ARG http_proxy
+ARG https_proxy
+
+# 3. 设置工作目录
 WORKDIR /app
 
-# 3. 设置环境变量，防止Python写入.pyc文件
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
-# 4. 复制依赖文件并安装依赖
+# 5. 复制依赖文件并安装依赖
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. 复制所有应用代码到工作目录
+RUN apt-get update && apt-get install -y ca-certificates
+# 6. 复制所有应用代码到工作目录
 COPY . .
-RUN chmod +x entrypoint.sh
 
-# 6. 暴露端口
+# 7. 安装项目
+RUN pip install .
+
+# 8. 暴露端口
 EXPOSE 5000
 
-# 7. 容器启动时运行的命令
-ENTRYPOINT ["./entrypoint.sh"]
+# 9. 设置Flask环境变量
+ENV FLASK_APP=emby_register_service
+
+# 10. 运行应用
+CMD ["flask", "run", "--host=0.0.0.0"]

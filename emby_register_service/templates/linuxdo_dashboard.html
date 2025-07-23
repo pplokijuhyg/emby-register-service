@@ -7,10 +7,15 @@
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h3 class="card-title mb-0">欢迎，{{ user.name }}！</h3>
-                        <a href="{{ url_for('linuxdo_logout') }}" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-box-arrow-right me-1"></i>退出登录
-                        </a>
+                        <h1 class="h3">欢迎, {{ user.name }}</h1>
+                        <div>
+                            <a href="{{ url_for('main.show_requests') }}" class="btn btn-info btn-sm">
+                                <i class="bi bi-film"></i> 剧集申请
+                            </a>
+                            <a href="{{ url_for('main.linuxdo_logout') }}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-box-arrow-right"></i> 退出登录
+                            </a>
+                        </div>
                     </div>
                     
                     <div class="row">
@@ -45,10 +50,16 @@
                     </div>
                     
                     {% if can_register %}
-                    <div class="mt-3">
-                        <a href="{{ url_for('emby_register') }}" class="btn btn-primary">
-                            <i class="bi bi-plus-circle me-1"></i>注册新账号
-                        </a>
+                    <div class="mt-4 p-4 bg-light rounded">
+                        <h4><i class="bi bi-person-plus-fill"></i> 注册新Emby账号</h4>
+                        <form action="{{ url_for('main.emby_register') }}" method="post" class="mt-3">
+                            <div class="input-group">
+                                <span class="input-group-text">Emby用户名</span>
+                                <input type="text" name="username" class="form-control" placeholder="4-32位字母和数字" 
+                                       pattern="^[a-zA-Z0-9]{4,32}$" required>
+                                <button class="btn btn-primary" type="submit">立即注册</button>
+                            </div>
+                        </form>
                     </div>
                     {% else %}
                     <div class="mt-3">

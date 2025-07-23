@@ -1,0 +1,96 @@
+{% extends 'layout.html' %}
+{% block title %}剧集申请管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3">剧集申请管理</h1>
+        <div>
+            <a href="{{ url_for('main.admin_requests') }}" class="btn btn-outline-secondary{% if not filter_status %} active{% endif %}">全部</a>
+            <a href="{{ url_for('main.admin_requests', status='pending') }}" class="btn btn-outline-warning{% if filter_status == 'pending' %} active{% endif %}">仅待处理</a>
+            <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary ms-2">
+                <i class="bi bi-arrow-left"></i> 返回主管理页面
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">海报</th>
+                            <th scope="col">剧集名称</th>
+                            <th scope="col">想看</th>
+                            <th scope="col">申请人</th>
+                            <th scope="col">申请时间</th>
+                            <th scope="col">状态</th>
+                            <th scope="col">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requests %}
+                        <tr>
+                            <td>
+                                <img src="{{ req.poster_image_url or 'https://via.placeholder.com/50x75.png?text=N/A' }}" 
+                                     alt="{{ req.show_name }}" class="img-thumbnail" style="width: 50px;">
+                            </td>
+                            <td>
+                                <a href="{{ req.douban_url }}" target="_blank">{{ req.show_name }}</a>
+                            </td>
+                            <td>{{ req.vote_count }}</td>
+                            <td>{{ req.username }}</td>
+                            <td>{{ req.requested_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-{{
+                                        'success' if req.status == 'approved' else
+                                        'info' if req.status == 'added' else
+                                        'warning' if req.status == 'pending' else
+                                        'secondary'
+                                    }} dropdown-toggle" type="button" id="dropdownMenuButton-{{ req.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        {% if req.status == 'pending' %}待处理
+                                        {% elif req.status == 'approved' %}已通过
+                                        {% elif req.status == 'rejected' %}已拒绝
+                                        {% elif req.status == 'added' %}已添加
+                                        {% else %}未知{% endif %}
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton-{{ req.id }}">
+                                        <li><a class="dropdown-item" href="{{ url_for('main.update_request_status', request_id=req.id, status='pending') }}">待处理</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('main.update_request_status', request_id=req.id, status='approved') }}">已通过</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('main.update_request_status', request_id=req.id, status='rejected') }}">已拒绝</a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('main.update_request_status', request_id=req.id, status='added') }}">已添加</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                            <td>
+                                <form action="{{ url_for('main.delete_request', request_id=req.id) }}" method="POST" onsubmit="return confirm('确定要删除这个申请吗？');" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i> 删除
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('main.update_request_status', request_id=req.id, status='added') }}" method="POST" class="d-inline ms-1">
+                                    <button type="submit" class="btn btn-sm btn-info">
+                                        <i class="bi bi-check2-circle"></i> 标记为已添加
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('main.update_request_status', request_id=req.id, status='rejected') }}" method="POST" class="d-inline ms-1">
+                                    <button type="submit" class="btn btn-sm btn-secondary">
+                                        <i class="bi bi-x-circle"></i> 标记为拒绝
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center">没有剧集申请记录。</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
