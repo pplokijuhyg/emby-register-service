@@ -16,6 +16,9 @@
             申请添加新剧集
         </div>
         <div class="card-body">
+            <div class="alert alert-info">
+                想看数量超过5的剧集会自动处理，未超过请等待手动处理。
+            </div>
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}

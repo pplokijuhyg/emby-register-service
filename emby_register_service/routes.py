@@ -148,9 +148,19 @@ def show_requests():
                 flash('豆瓣链接格式不正确，无法提取ID。', 'danger')
             else:
                 # 查重
-                exists = db.execute('SELECT 1 FROM requests WHERE douban_id = ?', (douban_id,)).fetchone()
+                exists = db.execute('SELECT id FROM requests WHERE douban_id = ?', (douban_id,)).fetchone()
                 if exists:
-                    flash('已经有人提交过，请投赞成票', 'warning')
+                    # 已有该剧集，自动投票
+                    request_id = exists['id']
+                    user_id = session['linuxdo_user_id']
+                    already_voted = db.execute('SELECT 1 FROM votes WHERE user_id = ? AND request_id = ?', (user_id, request_id)).fetchone()
+                    if already_voted:
+                        flash('您已经投过票了', 'warning')
+                    else:
+                        db.execute('INSERT INTO votes (user_id, request_id) VALUES (?, ?)', (user_id, request_id))
+                        db.commit()
+                        flash('已为该剧集投票成功！', 'success')
+                    return redirect(url_for('main.show_requests'))
                 else:
                     # 抓取豆瓣页面
                     cookies = os.getenv('DOUBAN_COOKIES')
@@ -179,6 +189,15 @@ def show_requests():
                             return redirect(url_for('main.show_requests'))
                     except Exception as e:
                         flash(f'抓取豆瓣信息失败: {e}', 'danger')
+
+    # 自动将想看数大于5的剧集状态改为已处理（approved）
+    to_approve = db.execute(
+        'SELECT r.id FROM requests r WHERE r.status != "approved" AND (SELECT COUNT(*) FROM votes v WHERE v.request_id = r.id) > 5'
+    ).fetchall()
+    for row in to_approve:
+        db.execute('UPDATE requests SET status = "approved" WHERE id = ?', (row['id'],))
+    if to_approve:
+        db.commit()
 
     # 获取所有申请列表及投票数和当前用户是否已投票
     all_requests = db.execute(
@@ -574,10 +593,16 @@ def linuxdo_register():
 def public_rss():
     db = get_db()
     requests = db.execute(
-        '''SELECT show_name, douban_url, poster_image_url, requested_at FROM requests ORDER BY requested_at DESC'''
+        'SELECT id, show_name, douban_url, poster_image_url, requested_at FROM requests ORDER BY requested_at DESC'
     ).fetchall()
-    rss_items = []
+    filtered = []
     for req in requests:
+        vote_count = db.execute('SELECT COUNT(*) FROM votes WHERE request_id = ?', (req['id'],)).fetchone()[0]
+        if vote_count > 5:
+            filtered.append(req)
+    from email.utils import formatdate
+    rss_items = []
+    for req in filtered:
         item = f'''
         <item>
             <title>{req['show_name']}</title>
