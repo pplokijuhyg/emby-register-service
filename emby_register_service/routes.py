@@ -181,8 +181,8 @@ def show_requests():
                             flash('无法从豆瓣页面提取剧集名称。', 'danger')
                         else:
                             db.execute(
-                                'INSERT INTO requests (show_name, douban_url, douban_id, poster_image_url, requested_by_user_id) VALUES (?, ?, ?, ?, ?)',
-                                (show_name, douban_url, douban_id, poster_image_url, session['linuxdo_user_id'])
+                                'INSERT INTO requests (show_name, douban_url, douban_id, poster_image_url, requested_by_user_id, status) VALUES (?, ?, ?, ?, ?, ?)',
+                                (show_name, douban_url, douban_id, poster_image_url, session['linuxdo_user_id'], 'approved')
                             )
                             db.commit()
                             flash('剧集申请已提交！', 'success')
@@ -191,13 +191,7 @@ def show_requests():
                         flash(f'抓取豆瓣信息失败: {e}', 'danger')
 
     # 自动将想看数大于5的剧集状态改为已处理（approved）
-    to_approve = db.execute(
-        'SELECT r.id FROM requests r WHERE r.status != "approved" AND (SELECT COUNT(*) FROM votes v WHERE v.request_id = r.id) > 5'
-    ).fetchall()
-    for row in to_approve:
-        db.execute('UPDATE requests SET status = "approved" WHERE id = ?', (row['id'],))
-    if to_approve:
-        db.commit()
+    # 已废弃，不再自动处理
 
     # 获取所有申请列表及投票数和当前用户是否已投票
     all_requests = db.execute(
@@ -592,17 +586,15 @@ def linuxdo_register():
 @bp.route('/rss')
 def public_rss():
     db = get_db()
+    from datetime import datetime, timedelta
+    time_limit = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
     requests = db.execute(
-        'SELECT id, show_name, douban_url, poster_image_url, requested_at FROM requests ORDER BY requested_at DESC'
+        'SELECT show_name, douban_url, poster_image_url, requested_at FROM requests WHERE requested_at > ? ORDER BY requested_at DESC',
+        (time_limit,)
     ).fetchall()
-    filtered = []
-    for req in requests:
-        vote_count = db.execute('SELECT COUNT(*) FROM votes WHERE request_id = ?', (req['id'],)).fetchone()[0]
-        if vote_count > 5:
-            filtered.append(req)
     from email.utils import formatdate
     rss_items = []
-    for req in filtered:
+    for req in requests:
         item = f'''
         <item>
             <title>{req['show_name']}</title>
