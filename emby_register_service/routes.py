@@ -147,6 +147,17 @@ def show_requests():
             if not douban_id:
                 flash('豆瓣链接格式不正确，无法提取ID。', 'danger')
             else:
+                # 限制每人每天只能申请一部剧
+                user_id = session['linuxdo_user_id']
+                from datetime import datetime
+                today = datetime.now().strftime('%Y-%m-%d')
+                count_today = db.execute(
+                    'SELECT COUNT(*) FROM requests WHERE requested_by_user_id = ? AND DATE(requested_at) = ?',
+                    (user_id, today)
+                ).fetchone()[0]
+                if count_today >= 1:
+                    flash('每人每天只能申请添加一部剧。', 'warning')
+                    return redirect(url_for('main.show_requests'))
                 # 查重
                 exists = db.execute('SELECT id FROM requests WHERE douban_id = ?', (douban_id,)).fetchone()
                 if exists:
