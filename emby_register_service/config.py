@@ -50,4 +50,8 @@ class Config:
     }
     missing_vars = [var for var, value in required_vars.items() if not value]
     if missing_vars:
-        raise ValueError(f"错误: 以下环境变量缺失或为空，请检查你的 .env 文件: {', '.join(missing_vars)}") 
+        raise ValueError(f"错误: 以下环境变量缺失或为空，请检查你的 .env 文件: {', '.join(missing_vars)}")
+
+    # Cookie 安全设置
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = PUBLIC_ACCESS_URL.startswith('https') if PUBLIC_ACCESS_URL else False 

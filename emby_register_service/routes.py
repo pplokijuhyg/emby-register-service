@@ -8,7 +8,6 @@ from functools import wraps
 import requests
 import os
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from email.utils import formatdate
 
 from flask import (
@@ -149,7 +148,6 @@ def show_requests():
             else:
                 # 限制每人每天只能申请一部剧
                 user_id = session['linuxdo_user_id']
-                from datetime import datetime
                 today = datetime.now().strftime('%Y-%m-%d')
                 count_today = db.execute(
                     'SELECT COUNT(*) FROM requests WHERE requested_by_user_id = ? AND DATE(requested_at) = ?',

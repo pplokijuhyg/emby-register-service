@@ -1,6 +1,7 @@
 import os
 import urllib3
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 from . import database
 from .routes import bp, oauth
@@ -12,6 +13,9 @@ def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     
+    # 添加代理修复中间件
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     if test_config is None:
         # load the instance config, if it exists, when not testing
         app.config.from_object(Config)
