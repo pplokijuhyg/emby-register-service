@@ -15,11 +15,12 @@ from flask import (
 )
 from flask_paginate import Pagination, get_page_args
 
-from .database import get_db, get_user_registration_count, can_user_register
+from .database import get_db, get_user_registration_count, can_user_register, get_deletion_logs
 from .utils import (
     _generate_signed_token, _verify_signed_token, create_emby_user,
-    get_linuxdo_user_info, get_or_create_linuxdo_user
+    get_linuxdo_user_info, get_or_create_linuxdo_user, cleanup_inactive_users
 )
+from .scheduler import get_scheduler_status, trigger_cleanup_now
 from authlib.integrations.flask_client import OAuth
 
 bp = Blueprint('main', __name__)
@@ -317,6 +318,12 @@ def admin():
         '''
     ).fetchall()
     
+    # 获取调度器状态
+    scheduler_status = get_scheduler_status()
+    
+    # 获取最近的删除记录（仅显示前10条）
+    recent_deletions, total_deletions = get_deletion_logs(limit=10)
+    
     db.close()
 
     # 6. Create the pagination object
@@ -341,7 +348,17 @@ def admin():
         public_access_url=current_app.config['PUBLIC_ACCESS_URL'],
         search_query=search_query,
         linuxdo_users=linuxdo_users,
-        requests=requests
+        requests=requests,
+        scheduler_status=scheduler_status,
+        cleanup_config={
+            'enabled': current_app.config.get('ENABLE_USER_CLEANUP', True),
+            'new_user_days': current_app.config.get('CLEANUP_NEW_USER_DAYS', 7),
+            'inactive_user_days': current_app.config.get('CLEANUP_INACTIVE_USER_DAYS', 30),
+            'interval_hours': current_app.config.get('CLEANUP_INTERVAL_HOURS', 24),
+            'only_platform_users': current_app.config.get('CLEANUP_ONLY_PLATFORM_USERS', True)
+        },
+        recent_deletions=recent_deletions,
+        total_deletions=total_deletions
     )
 
 @bp.route('/admin/requests', methods=['GET'])
@@ -481,6 +498,62 @@ def admin_user_registrations():
         for r in regs
     ]
     return {"success": True, "data": data}
+
+@bp.route('/admin/cleanup_users', methods=['POST'])
+@login_required
+def admin_cleanup_users():
+    """手动执行用户清理"""
+    try:
+        success, message = trigger_cleanup_now()
+        if success:
+            flash(message, 'success')
+        else:
+            flash(f'清理失败: {message}', 'error')
+    except Exception as e:
+        current_app.logger.error(f"手动清理用户失败: {e}")
+        flash(f'清理失败: {e}', 'error')
+    
+    return redirect(url_for('main.admin'))
+
+@bp.route('/admin/cleanup_status')
+@login_required
+def admin_cleanup_status():
+    """获取清理功能状态"""
+    status = get_scheduler_status()
+    config = {
+        'enabled': current_app.config.get('ENABLE_USER_CLEANUP', True),
+        'new_user_days': current_app.config.get('CLEANUP_NEW_USER_DAYS', 7),
+        'inactive_user_days': current_app.config.get('CLEANUP_INACTIVE_USER_DAYS', 30),
+        'interval_hours': current_app.config.get('CLEANUP_INTERVAL_HOURS', 24),
+        'only_platform_users': current_app.config.get('CLEANUP_ONLY_PLATFORM_USERS', True)
+    }
+    
+    return {
+        'success': True,
+        'scheduler_status': status,
+        'config': config
+    }
+
+@bp.route('/admin/deletion_logs')
+@login_required
+def admin_deletion_logs():
+    """查看用户删除记录"""
+    page, per_page, offset = get_page_args(page_parameter='page',
+                                           per_page_parameter='per_page',
+                                           per_page=current_app.config['PER_PAGE'])
+    
+    # 获取删除记录
+    deletion_logs, total = get_deletion_logs(limit=per_page, offset=offset)
+    
+    # 创建分页对象
+    pagination = Pagination(page=page, per_page=per_page, total=total,
+                            css_framework='bootstrap5',
+                            record_name='deletion_logs')
+    
+    return render_template('admin_deletion_logs.html',
+                         deletion_logs=deletion_logs,
+                         pagination=pagination,
+                         total=total)
 
 @bp.route('/linuxdo/reset_password', methods=['POST'])
 @linuxdo_login_required

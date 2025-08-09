@@ -24,6 +24,14 @@
             <li class="nav-item" role="presentation">
                 <a class="nav-link" href="{{ url_for('main.admin_requests') }}">剧集申请管理</a>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="cleanup-tab" data-bs-toggle="tab" data-bs-target="#cleanup" type="button" role="tab">
+                    用户清理管理
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" href="{{ url_for('main.admin_deletion_logs') }}">删除记录查看</a>
+            </li>
             {% endif %}
         </ul>
 
@@ -170,6 +178,197 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+            
+            <!-- 用户清理管理标签页 -->
+            <div class="tab-pane fade" id="cleanup" role="tabpanel">
+                <h5 class="mb-3">用户清理管理</h5>
+                
+                <!-- 清理功能状态 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">清理功能状态</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <strong>功能状态:</strong>
+                                    {% if cleanup_config.enabled %}
+                                        <span class="badge bg-success">已启用</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">已禁用</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>调度器状态:</strong>
+                                    {% if scheduler_status.running %}
+                                        <span class="badge bg-success">运行中</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">已停止</span>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>新用户清理天数:</strong> {{ cleanup_config.new_user_days }} 天
+                                </div>
+                                <div class="mb-2">
+                                    <strong>不活跃用户清理天数:</strong> {{ cleanup_config.inactive_user_days }} 天
+                                </div>
+                                <div class="mb-2">
+                                    <strong>检查间隔:</strong> {{ cleanup_config.interval_hours }} 小时
+                                </div>
+                                <div class="mb-2">
+                                    <strong>安全限制:</strong>
+                                    {% if cleanup_config.only_platform_users %}
+                                        <span class="badge bg-success">仅删除平台用户</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">删除所有用户</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">定时任务信息</h6>
+                            </div>
+                            <div class="card-body">
+                                {% if scheduler_status.jobs %}
+                                    {% for job in scheduler_status.jobs %}
+                                    <div class="mb-2">
+                                        <strong>任务名称:</strong> {{ job.name }}<br>
+                                        <strong>下次执行:</strong> 
+                                        {% if job.next_run_time %}
+                                            {{ job.next_run_time }}
+                                        {% else %}
+                                            未计划
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted">暂无定时任务</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 手动操作区域 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">手动操作</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <strong>注意:</strong> 手动清理将立即检查所有用户并删除符合条件的不活跃用户。此操作不可逆，请谨慎使用。
+                        </div>
+                        
+                        <form method="post" action="{{ url_for('main.admin_cleanup_users') }}" 
+                              onsubmit="return confirm('确定要立即执行用户清理吗？此操作将删除符合条件的不活跃用户，操作不可逆！');">
+                            <button type="submit" class="btn btn-warning" 
+                                    {% if not cleanup_config.enabled %}disabled{% endif %}>
+                                <i class="fas fa-broom"></i> 立即执行用户清理
+                            </button>
+                        </form>
+                        
+                        {% if not cleanup_config.enabled %}
+                        <small class="text-muted">清理功能已禁用，无法手动执行</small>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 清理规则说明 -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">清理规则说明</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li><strong>新注册用户:</strong> 注册超过 {{ cleanup_config.new_user_days }} 天且从未登录过的用户将被删除</li>
+                            <li><strong>不活跃用户:</strong> 最近 {{ cleanup_config.inactive_user_days }} 天内未登录的用户将被删除</li>
+                            <li><strong>自动执行:</strong> 系统每 {{ cleanup_config.interval_hours }} 小时自动检查一次</li>
+                            <li><strong>安全限制:</strong> 
+                                {% if cleanup_config.only_platform_users %}
+                                    <span class="text-success">仅删除通过平台注册的用户，管理员手动创建的用户不会被删除</span>
+                                {% else %}
+                                    <span class="text-warning">会删除所有符合条件的用户（包括管理员创建的）</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>删除范围:</strong> 删除用户时会同时删除Emby中的用户账号和数据库中的注册历史记录</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- 环境变量配置说明 -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">配置说明</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>可通过以下环境变量调整清理功能:</p>
+                        <ul class="mb-0">
+                            <li><code>ENABLE_USER_CLEANUP</code>: 是否启用用户清理功能 (true/false, 默认: true)</li>
+                            <li><code>CLEANUP_NEW_USER_DAYS</code>: 新用户未登录清理天数 (默认: 7)</li>
+                            <li><code>CLEANUP_INACTIVE_USER_DAYS</code>: 用户不活跃清理天数 (默认: 30)</li>
+                            <li><code>CLEANUP_INTERVAL_HOURS</code>: 清理检查间隔小时数 (默认: 24)</li>
+                            <li><code>CLEANUP_ONLY_PLATFORM_USERS</code>: 仅删除平台创建的用户 (true/false, 默认: true) <span class="badge bg-info">安全</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- 最近删除记录 -->
+                {% if recent_deletions %}
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">最近删除记录</h6>
+                        <div>
+                            <span class="badge bg-info">总计: {{ total_deletions }} 条</span>
+                            <a href="{{ url_for('main.admin_deletion_logs') }}" class="btn btn-sm btn-outline-primary ms-2">查看全部</a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>用户名</th>
+                                        <th>删除原因</th>
+                                        <th>删除时间</th>
+                                        <th>方式</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_deletions %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ log.emby_username }}</strong>
+                                            {% if log.linuxdo_username %}
+                                            <br><small class="text-muted">@{{ log.linuxdo_username }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-danger small">{{ log.deletion_reason }}</span>
+                                        </td>
+                                        <td>
+                                            <small>{{ log.deleted_at.strftime('%m-%d %H:%M') if log.deleted_at.strftime else log.deleted_at }}</small>
+                                        </td>
+                                        <td>
+                                            {% if log.deleted_by == 'system_cleanup' %}
+                                                <span class="badge bg-primary small">自动</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary small">{{ log.deleted_by }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>

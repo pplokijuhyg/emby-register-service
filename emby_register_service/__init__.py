@@ -5,6 +5,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 from . import database
 from .routes import bp, oauth
+from . import scheduler
 
 # 禁用SSL证书验证警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -61,5 +62,8 @@ def create_app(test_config=None):
     
     # Register blueprint
     app.register_blueprint(bp)
+    
+    # Initialize scheduler for cleanup tasks
+    scheduler.init_scheduler(app)
 
     return app 

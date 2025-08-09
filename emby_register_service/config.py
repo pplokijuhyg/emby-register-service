@@ -54,4 +54,11 @@ class Config:
 
     # Cookie 安全设置
     SESSION_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_SECURE = PUBLIC_ACCESS_URL.startswith('https') if PUBLIC_ACCESS_URL else False 
+    SESSION_COOKIE_SECURE = PUBLIC_ACCESS_URL.startswith('https') if PUBLIC_ACCESS_URL else False
+    
+    # 用户清理功能配置
+    ENABLE_USER_CLEANUP = os.getenv('ENABLE_USER_CLEANUP', 'true').lower() == 'true'
+    CLEANUP_NEW_USER_DAYS = int(os.getenv('CLEANUP_NEW_USER_DAYS', '7'))  # 新用户未登录天数
+    CLEANUP_INACTIVE_USER_DAYS = int(os.getenv('CLEANUP_INACTIVE_USER_DAYS', '30'))  # 用户未活跃天数
+    CLEANUP_INTERVAL_HOURS = int(os.getenv('CLEANUP_INTERVAL_HOURS', '24'))  # 清理检查间隔（小时）
+    CLEANUP_ONLY_PLATFORM_USERS = os.getenv('CLEANUP_ONLY_PLATFORM_USERS', 'true').lower() == 'true'  # 只删除平台创建的用户 

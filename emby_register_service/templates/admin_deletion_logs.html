@@ -1,0 +1,167 @@
+{% extends 'layout.html' %}
+{% block title %}用户删除记录{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="card-title mb-0">用户删除记录</h3>
+            <div>
+                <a href="{{ url_for('main.admin') }}" class="btn btn-sm btn-secondary me-2">返回管理</a>
+                <a href="{{ url_for('main.logout') }}" class="btn btn-sm btn-secondary">退出登录</a>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="alert alert-info">
+                    <strong>总删除记录数：</strong> {{ total }} 条
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="alert alert-warning">
+                    <strong>说明：</strong> 此页面显示所有被系统自动删除的用户记录，用于审计和统计分析。
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Emby用户名</th>
+                        <th scope="col">Linux.do用户</th>
+                        <th scope="col">删除原因</th>
+                        <th scope="col">注册时间</th>
+                        <th scope="col">最后活跃</th>
+                        <th scope="col">注册天数</th>
+                        <th scope="col">未活跃天数</th>
+                        <th scope="col">删除时间</th>
+                        <th scope="col">删除方式</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in deletion_logs %}
+                    <tr>
+                        <td>
+                            <strong>{{ log.emby_username }}</strong><br>
+                            <small class="text-muted">ID: {{ log.emby_user_id }}</small>
+                        </td>
+                        <td>
+                            {% if log.linuxdo_username %}
+                                {{ log.linuxdo_name or log.linuxdo_username }}<br>
+                                <small class="text-muted">@{{ log.linuxdo_username }}</small>
+                            {% else %}
+                                <span class="text-muted">未关联</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-danger">{{ log.deletion_reason }}</span>
+                        </td>
+                        <td>
+                            {% if log.registered_at %}
+                                {{ log.registered_at.strftime('%Y-%m-%d %H:%M') if log.registered_at.strftime else log.registered_at }}
+                            {% else %}
+                                <span class="text-muted">未知</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.last_activity_date %}
+                                {{ log.last_activity_date.strftime('%Y-%m-%d %H:%M') if log.last_activity_date.strftime else log.last_activity_date }}
+                            {% else %}
+                                <span class="text-muted">无记录</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.days_since_registration %}
+                                <span class="badge bg-info">{{ log.days_since_registration }} 天</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.days_since_last_activity %}
+                                <span class="badge bg-warning">{{ log.days_since_last_activity }} 天</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ log.deleted_at.strftime('%Y-%m-%d %H:%M') if log.deleted_at.strftime else log.deleted_at }}
+                        </td>
+                        <td>
+                            {% if log.deleted_by == 'system_cleanup' %}
+                                <span class="badge bg-primary">自动清理</span>
+                            {% elif log.deleted_by == 'admin' %}
+                                <span class="badge bg-secondary">管理员</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark">{{ log.deleted_by }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center">暂无删除记录。</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页控件 -->
+        <div class="d-flex justify-content-center mt-4">
+            {{ pagination.links }}
+        </div>
+
+        <!-- 统计信息 -->
+        {% if deletion_logs %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">删除统计</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h5 class="text-primary">{{ total }}</h5>
+                            <small class="text-muted">总删除数</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h5 class="text-warning">
+                                {{ deletion_logs | selectattr("deleted_by", "equalto", "system_cleanup") | list | length }}
+                            </h5>
+                            <small class="text-muted">自动清理</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h5 class="text-info">
+                                {{ deletion_logs | selectattr("linuxdo_user_id", "none") | list | length }}
+                            </h5>
+                            <small class="text-muted">未关联用户</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h5 class="text-success">
+                                {{ deletion_logs | selectattr("linuxdo_user_id", "defined") | selectattr("linuxdo_user_id") | list | length }}
+                            </h5>
+                            <small class="text-muted">关联用户</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

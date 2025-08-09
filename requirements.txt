@@ -4,3 +4,4 @@ flask-paginate
 authlib
 urllib3
 python-dotenv
+APScheduler==3.10.4

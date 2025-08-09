@@ -47,8 +47,14 @@
    ```sh
    docker build -t emby-register-service .
    docker run -p 5000:5000 --env-file .env -v "${pwd}:/app" emby-register-service
+   # 本地调试
+   docker build -t emby-register-service .
+   docker run -p 8181:5000 --env-file .env -e FLASK_ENV=development -e FLASK_DEBUG=1  -v "${pwd}:/app" emby-register-service 
+   # 添加代理
+    --build-arg http_proxy=代理 --build-arg https_proxy=代理 
    ```
 3. 访问 `http://localhost:5000` 开始使用。
+
 
 ## 特色说明
 

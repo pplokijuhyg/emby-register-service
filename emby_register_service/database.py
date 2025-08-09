@@ -112,6 +112,26 @@ def init_app(app):
             '''
         )
 
+        # 创建用户删除记录表
+        cursor.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS user_deletion_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                emby_user_id TEXT NOT NULL,
+                emby_username TEXT NOT NULL,
+                linuxdo_user_id INTEGER,
+                deletion_reason TEXT NOT NULL,
+                registered_at TIMESTAMP,
+                last_activity_date TIMESTAMP,
+                days_since_registration INTEGER,
+                days_since_last_activity INTEGER,
+                deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                deleted_by TEXT DEFAULT 'system',
+                FOREIGN KEY (linuxdo_user_id) REFERENCES linuxdo_users (id)
+            )
+            '''
+        )
+
         db.commit()
 
 
@@ -129,4 +149,42 @@ def can_user_register(user_id, trust_level):
     from .config import Config
     current_count = get_user_registration_count(user_id)
     max_allowed = Config.TRUST_LEVEL_LIMITS.get(trust_level, 1)
-    return current_count < max_allowed 
+    return current_count < max_allowed
+
+
+def log_user_deletion(emby_user_id, emby_username, linuxdo_user_id, deletion_reason, 
+                      registered_at=None, last_activity_date=None, 
+                      days_since_registration=None, days_since_last_activity=None, 
+                      deleted_by='system'):
+    """记录用户删除日志"""
+    db = get_db()
+    cursor = db.execute(
+        '''INSERT INTO user_deletion_logs 
+           (emby_user_id, emby_username, linuxdo_user_id, deletion_reason,
+            registered_at, last_activity_date, days_since_registration, 
+            days_since_last_activity, deleted_by) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (emby_user_id, emby_username, linuxdo_user_id, deletion_reason,
+         registered_at, last_activity_date, days_since_registration,
+         days_since_last_activity, deleted_by)
+    )
+    db.commit()
+    return cursor.lastrowid
+
+
+def get_deletion_logs(limit=100, offset=0):
+    """获取用户删除记录"""
+    db = get_db()
+    logs = db.execute(
+        '''SELECT dl.*, lu.username as linuxdo_username, lu.name as linuxdo_name
+           FROM user_deletion_logs dl
+           LEFT JOIN linuxdo_users lu ON dl.linuxdo_user_id = lu.id
+           ORDER BY dl.deleted_at DESC
+           LIMIT ? OFFSET ?''',
+        (limit, offset)
+    ).fetchall()
+    
+    # 获取总数
+    total = db.execute('SELECT COUNT(*) FROM user_deletion_logs').fetchone()[0]
+    
+    return logs, total 
