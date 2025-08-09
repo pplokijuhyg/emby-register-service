@@ -67,14 +67,18 @@
                         </td>
                         <td>
                             {% if log.registered_at %}
-                                {{ log.registered_at.strftime('%Y-%m-%d %H:%M') if log.registered_at.strftime else log.registered_at }}
+                                <span class="registered-time" data-utc-time="{{ log.registered_at.isoformat() if log.registered_at else '' }}">
+                                    {{ log.registered_at.strftime('%Y-%m-%d %H:%M') if log.registered_at.strftime else log.registered_at }}
+                                </span>
                             {% else %}
                                 <span class="text-muted">未知</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if log.last_activity_date %}
-                                {{ log.last_activity_date.strftime('%Y-%m-%d %H:%M') if log.last_activity_date.strftime else log.last_activity_date }}
+                                <span class="activity-time" data-utc-time="{{ log.last_activity_date.isoformat() if log.last_activity_date else '' }}">
+                                    {{ log.last_activity_date.strftime('%Y-%m-%d %H:%M') if log.last_activity_date.strftime else log.last_activity_date }}
+                                </span>
                             {% else %}
                                 <span class="text-muted">无记录</span>
                             {% endif %}
@@ -94,7 +98,9 @@
                             {% endif %}
                         </td>
                         <td>
-                            {{ log.deleted_at.strftime('%Y-%m-%d %H:%M') if log.deleted_at.strftime else log.deleted_at }}
+                            <span class="deletion-time" data-utc-time="{{ log.deleted_at.isoformat() if log.deleted_at else '' }}">
+                                {{ log.deleted_at.strftime('%Y-%m-%d %H:%M') if log.deleted_at.strftime else log.deleted_at }}
+                            </span>
                         </td>
                         <td>
                             {% if log.deleted_by == 'system_cleanup' %}
@@ -164,4 +170,76 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+// 时区转换功能 - 删除记录页面
+function convertToLocalTime() {
+    // 获取所有需要转换时区的元素
+    const timeElements = document.querySelectorAll('.deletion-time, .registered-time, .activity-time');
+    
+    timeElements.forEach(element => {
+        const utcTimeStr = element.getAttribute('data-utc-time');
+        if (!utcTimeStr) return;
+        
+        try {
+            // 解析UTC时间
+            const utcDate = new Date(utcTimeStr);
+            
+            // 检查是否为有效日期
+            if (isNaN(utcDate.getTime())) {
+                console.warn('无效的时间格式:', utcTimeStr);
+                return;
+            }
+            
+            // 转换为本地时间并格式化
+            const localTimeStr = formatLocalDateTime(utcDate);
+            
+            // 根据元素类型决定显示格式
+            if (element.classList.contains('deletion-time')) {
+                // 删除时间：完整日期时间
+                element.innerHTML = `${localTimeStr}`;
+            } else {
+                // 注册时间和活跃时间：完整日期时间
+                element.innerHTML = `${localTimeStr}`;
+            }
+            
+            // 添加时区提示
+            element.setAttribute('title', `本地时间 (UTC${getTimezoneOffset()})\n原始时间: ${utcTimeStr}`);
+            
+        } catch (error) {
+            console.error('时间转换失败:', error, '原始时间:', utcTimeStr);
+        }
+    });
+}
+
+// 格式化本地日期时间
+function formatLocalDateTime(date) {
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    };
+    
+    return date.toLocaleString('zh-CN', options);
+}
+
+// 获取时区偏移显示
+function getTimezoneOffset() {
+    const offset = -(new Date().getTimezoneOffset());
+    const hours = Math.floor(Math.abs(offset) / 60);
+    const minutes = Math.abs(offset) % 60;
+    const sign = offset >= 0 ? '+' : '-';
+    
+    return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+// 页面加载完成后执行时区转换
+document.addEventListener('DOMContentLoaded', function() {
+    // 延迟执行以确保所有元素都已渲染
+    setTimeout(convertToLocalTime, 100);
+});
+</script>
 {% endblock %}

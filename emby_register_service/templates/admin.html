@@ -392,7 +392,9 @@
                                             <span class="badge bg-danger small">{{ log.deletion_reason }}</span>
                                         </td>
                                         <td>
-                                            <small>{{ log.deleted_at.strftime('%m-%d %H:%M') if log.deleted_at.strftime else log.deleted_at }}</small>
+                                            <small class="deletion-time" data-utc-time="{{ log.deleted_at.isoformat() if log.deleted_at else '' }}">
+                                                {{ log.deleted_at.strftime('%m-%d %H:%M') if log.deleted_at.strftime else log.deleted_at }}
+                                            </small>
                                         </td>
                                         <td>
                                             {% if log.deleted_by == 'system_cleanup' %}
@@ -514,7 +516,7 @@ function viewUserRegistrations(userId) {
 // 时区转换功能
 function convertToLocalTime() {
     // 获取所有需要转换时区的元素
-    const timeElements = document.querySelectorAll('.next-run-time');
+    const timeElements = document.querySelectorAll('.next-run-time, .deletion-time');
     
     timeElements.forEach(element => {
         const utcTimeStr = element.getAttribute('data-utc-time');
@@ -533,11 +535,19 @@ function convertToLocalTime() {
             // 转换为本地时间并格式化
             const localTimeStr = formatLocalDateTime(utcDate);
             
-            // 更新显示内容
-            element.innerHTML = `
-                <span class="text-success">${localTimeStr}</span>
-                <br><small class="text-muted">本地时间 (UTC${getTimezoneOffset()})</small>
-            `;
+            // 根据元素类型决定显示格式
+            if (element.classList.contains('next-run-time')) {
+                // 定时任务时间：显示完整格式
+                element.innerHTML = `
+                    <span class="text-success">${localTimeStr}</span>
+                    <br><small class="text-muted">本地时间 (UTC${getTimezoneOffset()})</small>
+                `;
+            } else if (element.classList.contains('deletion-time')) {
+                // 删除时间：简化格式
+                const shortFormat = formatShortDateTime(utcDate);
+                element.innerHTML = shortFormat;
+                element.setAttribute('title', `本地时间 (UTC${getTimezoneOffset()})\n完整时间: ${localTimeStr}`);
+            }
             
         } catch (error) {
             console.error('时间转换失败:', error, '原始时间:', utcTimeStr);
@@ -558,6 +568,32 @@ function formatLocalDateTime(date) {
     };
     
     return date.toLocaleString('zh-CN', options);
+}
+
+// 格式化短时间格式（用于表格显示）
+function formatShortDateTime(date) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    // 判断是否为今天
+    if (dateOnly.getTime() === today.getTime()) {
+        // 今天：只显示时间
+        return date.toLocaleString('zh-CN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    } else {
+        // 其他日期：显示月-日 时:分
+        return date.toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    }
 }
 
 // 获取时区偏移显示
