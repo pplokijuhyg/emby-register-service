@@ -18,7 +18,8 @@ from flask_paginate import Pagination, get_page_args
 from .database import get_db, get_user_registration_count, can_user_register, get_deletion_logs
 from .utils import (
     _generate_signed_token, _verify_signed_token, create_emby_user,
-    get_linuxdo_user_info, get_or_create_linuxdo_user, cleanup_inactive_users
+    get_linuxdo_user_info, get_or_create_linuxdo_user, cleanup_inactive_users,
+    cleanup_orphaned_records
 )
 from .scheduler import get_scheduler_status, trigger_cleanup_now
 from authlib.integrations.flask_client import OAuth
@@ -355,7 +356,8 @@ def admin():
             'new_user_days': current_app.config.get('CLEANUP_NEW_USER_DAYS', 7),
             'inactive_user_days': current_app.config.get('CLEANUP_INACTIVE_USER_DAYS', 30),
             'interval_hours': current_app.config.get('CLEANUP_INTERVAL_HOURS', 24),
-            'only_platform_users': current_app.config.get('CLEANUP_ONLY_PLATFORM_USERS', True)
+            'only_platform_users': current_app.config.get('CLEANUP_ONLY_PLATFORM_USERS', True),
+            'cleanup_orphaned': current_app.config.get('CLEANUP_ORPHANED_RECORDS', True)
         },
         recent_deletions=recent_deletions,
         total_deletions=total_deletions
@@ -515,6 +517,28 @@ def admin_cleanup_users():
     
     return redirect(url_for('main.admin'))
 
+@bp.route('/admin/cleanup_orphaned', methods=['POST'])
+@login_required
+def admin_cleanup_orphaned():
+    """手动执行孤儿记录清理"""
+    try:
+        result = cleanup_orphaned_records()
+        if result['cleaned_count'] > 0:
+            flash(f'孤儿记录清理完成：检查了 {result["total_checked"]} 个记录，清理了 {result["cleaned_count"]} 个孤儿记录', 'success')
+        elif result.get('message'):
+            flash(result['message'], 'info')
+        else:
+            flash(f'孤儿记录检查完成：检查了 {result["total_checked"]} 个记录，未发现需要清理的孤儿记录', 'info')
+        
+        if result['errors']:
+            flash(f'清理过程中出现 {len(result["errors"])} 个错误', 'warning')
+            
+    except Exception as e:
+        current_app.logger.error(f"手动清理孤儿记录失败: {e}")
+        flash(f'孤儿记录清理失败: {e}', 'error')
+    
+    return redirect(url_for('main.admin'))
+
 @bp.route('/admin/cleanup_status')
 @login_required
 def admin_cleanup_status():
@@ -525,7 +549,8 @@ def admin_cleanup_status():
         'new_user_days': current_app.config.get('CLEANUP_NEW_USER_DAYS', 7),
         'inactive_user_days': current_app.config.get('CLEANUP_INACTIVE_USER_DAYS', 30),
         'interval_hours': current_app.config.get('CLEANUP_INTERVAL_HOURS', 24),
-        'only_platform_users': current_app.config.get('CLEANUP_ONLY_PLATFORM_USERS', True)
+        'only_platform_users': current_app.config.get('CLEANUP_ONLY_PLATFORM_USERS', True),
+        'cleanup_orphaned': current_app.config.get('CLEANUP_ORPHANED_RECORDS', True)
     }
     
     return {

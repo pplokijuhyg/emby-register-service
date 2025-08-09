@@ -258,6 +258,139 @@ def verify_platform_created_user(emby_user_id, emby_username):
         return False, f"验证失败: {e}"
 
 
+def get_all_emby_users():
+    """获取Emby服务器中的所有用户列表"""
+    config = current_app.config
+    headers = {'X-Emby-Token': config['EMBY_API_KEY'], 'Content-Type': 'application/json'}
+    
+    try:
+        users_url = f"{config['EMBY_SERVER_URL']}/Users"
+        response = requests.get(users_url, headers=headers, timeout=15,
+                               verify=not config.get('DISABLE_SSL_VERIFY', False))
+        response.raise_for_status()
+        users = response.json()
+        
+        # 返回用户ID到用户名的映射
+        user_map = {}
+        for user in users:
+            user_id = user.get('Id')
+            username = user.get('Name')
+            if user_id and username:
+                user_map[user_id] = username
+        
+        current_app.logger.info(f"从Emby获取到 {len(user_map)} 个用户")
+        return user_map, None
+        
+    except requests.RequestException as e:
+        current_app.logger.error(f"获取Emby用户列表失败: {e}")
+        return None, f"获取Emby用户列表失败: {e}"
+    except Exception as e:
+        current_app.logger.error(f"处理Emby用户列表时出错: {e}")
+        return None, f"处理Emby用户列表时出错: {e}"
+
+
+def cleanup_orphaned_records():
+    """清理Emby中不存在的孤儿注册记录"""
+    config = current_app.config
+    
+    # 检查是否启用孤儿记录清理
+    if not config.get('CLEANUP_ORPHANED_RECORDS', True):
+        current_app.logger.info("孤儿记录清理功能已禁用")
+        return {
+            'cleaned_count': 0,
+            'errors': [],
+            'total_checked': 0,
+            'message': '孤儿记录清理功能已禁用'
+        }
+    
+    current_app.logger.info("开始清理孤儿注册记录...")
+    
+    # 获取Emby中的所有用户
+    emby_users, error = get_all_emby_users()
+    if not emby_users:
+        return {
+            'cleaned_count': 0,
+            'errors': [f"无法获取Emby用户列表: {error}"],
+            'total_checked': 0
+        }
+    
+    # 获取数据库中的所有注册记录
+    db = get_db()
+    registrations = db.execute(
+        '''SELECT emby_user_id, emby_username, registered_at, linuxdo_user_id
+           FROM user_registrations 
+           WHERE emby_user_id IS NOT NULL'''
+    ).fetchall()
+    
+    cleaned_count = 0
+    errors = []
+    
+    current_app.logger.info(f"检查 {len(registrations)} 个注册记录是否存在对应的Emby用户")
+    
+    for registration in registrations:
+        emby_user_id = registration['emby_user_id']
+        emby_username = registration['emby_username']
+        registered_at = registration['registered_at']
+        linuxdo_user_id = registration['linuxdo_user_id']
+        
+        # 检查用户是否在Emby中存在
+        if emby_user_id not in emby_users:
+            current_app.logger.info(f"发现孤儿记录: {emby_username} (ID: {emby_user_id}) - Emby中不存在")
+            
+            try:
+                # 记录删除日志
+                log_user_deletion(
+                    emby_user_id=emby_user_id,
+                    emby_username=emby_username,
+                    linuxdo_user_id=linuxdo_user_id,
+                    deletion_reason="孤儿记录清理：用户在Emby服务器中不存在",
+                    registered_at=registered_at,
+                    last_activity_date=None,
+                    days_since_registration=None,
+                    days_since_last_activity=None,
+                    deleted_by='system_orphan_cleanup'
+                )
+                current_app.logger.info(f"已记录孤儿用户删除日志: {emby_username}")
+            except Exception as log_error:
+                current_app.logger.error(f"记录孤儿用户删除日志失败 {emby_username}: {log_error}")
+            
+            # 删除数据库中的注册记录
+            try:
+                db.execute(
+                    'DELETE FROM user_registrations WHERE emby_user_id = ?',
+                    (emby_user_id,)
+                )
+                db.commit()
+                
+                cleaned_count += 1
+                current_app.logger.info(f"成功清理孤儿记录: {emby_username}")
+                
+            except Exception as delete_error:
+                error_msg = f"删除孤儿记录 {emby_username} 失败: {delete_error}"
+                errors.append(error_msg)
+                current_app.logger.error(error_msg)
+        
+        else:
+            # 验证用户名是否匹配
+            actual_username = emby_users[emby_user_id]
+            if actual_username != emby_username:
+                current_app.logger.warning(
+                    f"用户名不匹配: ID {emby_user_id} 数据库={emby_username}, Emby={actual_username}"
+                )
+    
+    result = {
+        'cleaned_count': cleaned_count,
+        'errors': errors,
+        'total_checked': len(registrations)
+    }
+    
+    current_app.logger.info(f"孤儿记录清理完成: 检查了 {result['total_checked']} 个记录，清理了 {result['cleaned_count']} 个孤儿记录")
+    if result['errors']:
+        current_app.logger.error(f"清理过程中出现 {len(result['errors'])} 个错误")
+    
+    return result
+
+
 def cleanup_inactive_users():
     """清理不活跃的用户"""
     config = current_app.config
@@ -402,13 +535,26 @@ def cleanup_inactive_users():
             else:
                 errors.append(f"删除用户 {emby_username} 失败: {error}")
     
+    # 执行孤儿记录清理
+    orphan_result = cleanup_orphaned_records()
+    
+    # 合并清理结果
     result = {
         'deleted_count': deleted_count,
         'errors': errors,
-        'total_checked': len(registrations)
+        'total_checked': len(registrations),
+        'orphaned_cleaned': orphan_result['cleaned_count'],
+        'orphaned_checked': orphan_result['total_checked'],
+        'orphaned_errors': orphan_result['errors']
     }
     
+    # 将孤儿清理的错误添加到主错误列表
+    result['errors'].extend(orphan_result['errors'])
+    
     current_app.logger.info(f"用户清理完成: 检查了 {result['total_checked']} 个用户，删除了 {result['deleted_count']} 个用户")
+    if orphan_result['cleaned_count'] > 0:
+        current_app.logger.info(f"孤儿记录清理: 检查了 {result['orphaned_checked']} 个记录，清理了 {result['orphaned_cleaned']} 个孤儿记录")
+    
     if result['errors']:
         current_app.logger.error(f"清理过程中出现 {len(result['errors'])} 个错误")
     

@@ -51,10 +51,19 @@ def cleanup_users_job():
     
     try:
         result = cleanup_inactive_users()
+        
+        # 记录不活跃用户清理结果
         current_app.logger.info(
             f"定时用户清理完成: 检查 {result['total_checked']} 个用户，"
             f"删除 {result['deleted_count']} 个用户"
         )
+        
+        # 记录孤儿记录清理结果
+        if result.get('orphaned_cleaned', 0) > 0:
+            current_app.logger.info(
+                f"孤儿记录清理完成: 检查 {result['orphaned_checked']} 个记录，"
+                f"清理 {result['orphaned_cleaned']} 个孤儿记录"
+            )
         
         if result.get('errors'):
             current_app.logger.error(f"清理过程中出现错误: {'; '.join(result['errors'])}")

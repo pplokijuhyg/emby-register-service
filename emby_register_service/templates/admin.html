@@ -225,6 +225,14 @@
                                         <span class="badge bg-warning">删除所有用户</span>
                                     {% endif %}
                                 </div>
+                                <div class="mb-2">
+                                    <strong>孤儿记录清理:</strong>
+                                    {% if cleanup_config.cleanup_orphaned %}
+                                        <span class="badge bg-info">已启用</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">已禁用</span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -265,16 +273,38 @@
                             <strong>注意:</strong> 手动清理将立即检查所有用户并删除符合条件的不活跃用户。此操作不可逆，请谨慎使用。
                         </div>
                         
-                        <form method="post" action="{{ url_for('main.admin_cleanup_users') }}" 
-                              onsubmit="return confirm('确定要立即执行用户清理吗？此操作将删除符合条件的不活跃用户，操作不可逆！');">
-                            <button type="submit" class="btn btn-warning" 
-                                    {% if not cleanup_config.enabled %}disabled{% endif %}>
-                                <i class="fas fa-broom"></i> 立即执行用户清理
-                            </button>
-                        </form>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <h6>完整清理</h6>
+                                <p class="text-muted small">执行不活跃用户清理 + 孤儿记录清理</p>
+                                <form method="post" action="{{ url_for('main.admin_cleanup_users') }}" 
+                                      onsubmit="return confirm('确定要立即执行完整用户清理吗？此操作将删除符合条件的不活跃用户和孤儿记录，操作不可逆！');">
+                                    <button type="submit" class="btn btn-warning w-100" 
+                                            {% if not cleanup_config.enabled %}disabled{% endif %}>
+                                        <i class="fas fa-broom"></i> 立即执行完整清理
+                                    </button>
+                                </form>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <h6>孤儿记录清理</h6>
+                                <p class="text-muted small">仅清理Emby中不存在的注册记录</p>
+                                <form method="post" action="{{ url_for('main.admin_cleanup_orphaned') }}" 
+                                      onsubmit="return confirm('确定要执行孤儿记录清理吗？此操作将删除Emby中不存在的注册记录。');">
+                                    <button type="submit" class="btn btn-info w-100" 
+                                            {% if not cleanup_config.cleanup_orphaned %}disabled{% endif %}>
+                                        <i class="fas fa-search"></i> 清理孤儿记录
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                         
                         {% if not cleanup_config.enabled %}
-                        <small class="text-muted">清理功能已禁用，无法手动执行</small>
+                        <small class="text-muted">用户清理功能已禁用，无法执行完整清理</small>
+                        {% endif %}
+                        
+                        {% if not cleanup_config.cleanup_orphaned %}
+                        <small class="text-muted">孤儿记录清理功能已禁用</small>
                         {% endif %}
                     </div>
                 </div>
@@ -288,6 +318,13 @@
                         <ul class="mb-0">
                             <li><strong>新注册用户:</strong> 注册超过 {{ cleanup_config.new_user_days }} 天且从未登录过的用户将被删除</li>
                             <li><strong>不活跃用户:</strong> 最近 {{ cleanup_config.inactive_user_days }} 天内未登录的用户将被删除</li>
+                            <li><strong>孤儿记录清理:</strong> 
+                                {% if cleanup_config.cleanup_orphaned %}
+                                    <span class="text-info">自动检测并清理Emby服务器中不存在的注册记录</span>
+                                {% else %}
+                                    <span class="text-muted">孤儿记录清理已禁用</span>
+                                {% endif %}
+                            </li>
                             <li><strong>自动执行:</strong> 系统每 {{ cleanup_config.interval_hours }} 小时自动检查一次</li>
                             <li><strong>安全限制:</strong> 
                                 {% if cleanup_config.only_platform_users %}
@@ -314,6 +351,7 @@
                             <li><code>CLEANUP_INACTIVE_USER_DAYS</code>: 用户不活跃清理天数 (默认: 30)</li>
                             <li><code>CLEANUP_INTERVAL_HOURS</code>: 清理检查间隔小时数 (默认: 24)</li>
                             <li><code>CLEANUP_ONLY_PLATFORM_USERS</code>: 仅删除平台创建的用户 (true/false, 默认: true) <span class="badge bg-info">安全</span></li>
+                            <li><code>CLEANUP_ORPHANED_RECORDS</code>: 清理孤儿记录 (true/false, 默认: true) <span class="badge bg-success">推荐</span></li>
                         </ul>
                     </div>
                 </div>
