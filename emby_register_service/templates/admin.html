@@ -249,9 +249,11 @@
                                         <strong>任务名称:</strong> {{ job.name }}<br>
                                         <strong>下次执行:</strong> 
                                         {% if job.next_run_time %}
-                                            {{ job.next_run_time }}
+                                            <span class="next-run-time" data-utc-time="{{ job.next_run_time }}">
+                                                {{ job.next_run_time }}
+                                            </span>
                                         {% else %}
-                                            未计划
+                                            <span class="text-muted">未计划</span>
                                         {% endif %}
                                     </div>
                                     {% endfor %}
@@ -508,5 +510,70 @@ function viewUserRegistrations(userId) {
         alert('请求失败');
     });
 }
+
+// 时区转换功能
+function convertToLocalTime() {
+    // 获取所有需要转换时区的元素
+    const timeElements = document.querySelectorAll('.next-run-time');
+    
+    timeElements.forEach(element => {
+        const utcTimeStr = element.getAttribute('data-utc-time');
+        if (!utcTimeStr) return;
+        
+        try {
+            // 解析UTC时间
+            const utcDate = new Date(utcTimeStr);
+            
+            // 检查是否为有效日期
+            if (isNaN(utcDate.getTime())) {
+                console.warn('无效的时间格式:', utcTimeStr);
+                return;
+            }
+            
+            // 转换为本地时间并格式化
+            const localTimeStr = formatLocalDateTime(utcDate);
+            
+            // 更新显示内容
+            element.innerHTML = `
+                <span class="text-success">${localTimeStr}</span>
+                <br><small class="text-muted">本地时间 (UTC${getTimezoneOffset()})</small>
+            `;
+            
+        } catch (error) {
+            console.error('时间转换失败:', error, '原始时间:', utcTimeStr);
+        }
+    });
+}
+
+// 格式化本地日期时间
+function formatLocalDateTime(date) {
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    
+    return date.toLocaleString('zh-CN', options);
+}
+
+// 获取时区偏移显示
+function getTimezoneOffset() {
+    const offset = -(new Date().getTimezoneOffset());
+    const hours = Math.floor(Math.abs(offset) / 60);
+    const minutes = Math.abs(offset) % 60;
+    const sign = offset >= 0 ? '+' : '-';
+    
+    return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+// 页面加载完成后执行时区转换
+document.addEventListener('DOMContentLoaded', function() {
+    // 延迟执行以确保所有元素都已渲染
+    setTimeout(convertToLocalTime, 100);
+});
 </script>
 {% endblock %}
