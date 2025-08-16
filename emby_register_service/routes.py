@@ -284,16 +284,42 @@ def admin():
             (per_page, offset)
         ).fetchall()
     
+    # Linux.do 用户分页处理
     linuxdo_users = []
+    linuxdo_users_pagination = None
     if current_app.config['LINUXDO_OAUTH_ENABLED']:
+        # 获取搜索参数
+        users_search = request.args.get('users_search', '').strip()
+        
+        # 构建查询条件
+        where_clause = ""
+        search_params = []
+        if users_search:
+            where_clause = "WHERE u.username LIKE ? OR u.name LIKE ?"
+            search_params = [f'%{users_search}%', f'%{users_search}%']
+        
+        # 获取用户总数
+        count_query = f'SELECT COUNT(*) as count FROM linuxdo_users u {where_clause}'
+        total_users = db.execute(count_query, search_params).fetchone()['count']
+        
+        # 分页参数
+        users_per_page = 20  # 每页显示20个用户
+        users_page = request.args.get('users_page', 1, type=int)
+        users_offset = (users_page - 1) * users_per_page
+        
+        # 获取分页后的用户数据
+        query_params = search_params + [users_per_page, users_offset]
         linuxdo_users_data = db.execute(
-            '''SELECT u.*, 
+            f'''SELECT u.*, 
                       COUNT(r.id) as registration_count,
                       MAX(r.registered_at) as last_registration
                FROM linuxdo_users u
                LEFT JOIN user_registrations r ON u.id = r.linuxdo_user_id
+               {where_clause}
                GROUP BY u.id
-               ORDER BY u.last_login DESC'''
+               ORDER BY u.last_login DESC
+               LIMIT ? OFFSET ?''',
+            query_params
         ).fetchall()
         
         for user in linuxdo_users_data:
@@ -308,6 +334,31 @@ def admin():
                 'max_allowed': max_allowed,
                 'last_login': user['last_login']
             })
+        
+        # 创建用户分页对象
+        pagination_args = {'tab': 'users'}  # 确保分页链接保持在用户管理标签页
+        if search_query:
+            pagination_args['q'] = search_query
+        if users_search:
+            pagination_args['users_search'] = users_search
+        
+
+        
+        # 创建自定义分页对象，不使用 flask-paginate 的自动链接生成
+        class CustomPagination:
+            def __init__(self, page, per_page, total, args=None):
+                self.page = page
+                self.per_page = per_page
+                self.total = total
+                self.args = args or {}
+                self.pages = ((total - 1) // per_page) + 1 if total > 0 else 0
+        
+        linuxdo_users_pagination = CustomPagination(
+            page=users_page, 
+            per_page=users_per_page, 
+            total=total_users,
+            args=pagination_args
+        )
     
     # 获取剧集申请数据
     requests = db.execute(
@@ -349,6 +400,8 @@ def admin():
         public_access_url=current_app.config['PUBLIC_ACCESS_URL'],
         search_query=search_query,
         linuxdo_users=linuxdo_users,
+        linuxdo_users_pagination=linuxdo_users_pagination,
+        users_search=users_search if 'users_search' in locals() and users_search else '',
         requests=requests,
         scheduler_status=scheduler_status,
         cleanup_config={

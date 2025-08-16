@@ -11,13 +11,15 @@
         <!-- 导航标签 -->
         <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tokens-tab" data-bs-toggle="tab" data-bs-target="#tokens" type="button" role="tab">
+                <button class="nav-link {{ 'active' if not request.args.get('tab') or request.args.get('tab') == 'tokens' else '' }}" 
+                        id="tokens-tab" data-bs-toggle="tab" data-bs-target="#tokens" type="button" role="tab">
                     Token 管理
                 </button>
             </li>
             {% if config.get('LINUXDO_OAUTH_ENABLED', false) %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+                <button class="nav-link {{ 'active' if request.args.get('tab') == 'users' else '' }}" 
+                        id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
                     Linux.do 用户管理
                 </button>
             </li>
@@ -37,7 +39,7 @@
 
         <!-- Token 管理标签页 -->
         <div class="tab-content" id="adminTabContent">
-            <div class="tab-pane fade show active" id="tokens" role="tabpanel">
+            <div class="tab-pane fade {{ 'show active' if not request.args.get('tab') or request.args.get('tab') == 'tokens' else '' }}" id="tokens" role="tabpanel">
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -134,8 +136,43 @@
 
             <!-- Linux.do 用户管理标签页 -->
             {% if config.get('LINUXDO_OAUTH_ENABLED', false) %}
-            <div class="tab-pane fade" id="users" role="tabpanel">
+            <div class="tab-pane fade {{ 'show active' if request.args.get('tab') == 'users' else '' }}" id="users" role="tabpanel">
                 <h5 class="mb-3">Linux.do 用户列表</h5>
+                
+                <!-- 用户搜索表单 -->
+                <form method="get" action="{{ url_for('main.admin') }}" class="row g-2 mb-4">
+                    <input type="hidden" name="tab" value="users">
+                    <div class="col-md-8">
+                        <input type="text" name="users_search" class="form-control" 
+                               placeholder="搜索用户名或昵称" value="{{ users_search }}">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-outline-primary w-100">搜索</button>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="{{ url_for('main.admin') }}?tab=users" class="btn btn-outline-secondary w-100">重置</a>
+                    </div>
+                </form>
+                
+                <!-- 用户统计信息 -->
+                {% if linuxdo_users_pagination %}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-muted mb-0">
+                            显示第 {{ (linuxdo_users_pagination.page - 1) * linuxdo_users_pagination.per_page + 1 }} - 
+                            {{ linuxdo_users_pagination.page * linuxdo_users_pagination.per_page if linuxdo_users_pagination.page * linuxdo_users_pagination.per_page < linuxdo_users_pagination.total else linuxdo_users_pagination.total }} 
+                            条，共 {{ linuxdo_users_pagination.total }} 个用户
+                            {% if users_search %}
+                                <br><small class="text-info">搜索关键词: "{{ users_search }}"</small>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <span class="badge bg-primary">每页 {{ linuxdo_users_pagination.per_page }} 个用户</span>
+                    </div>
+                </div>
+                {% endif %}
+                
                 <div class="table-responsive">
                     <table class="table table-striped table-hover align-middle">
                         <thead>
@@ -178,6 +215,87 @@
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- 用户分页控件 -->
+                {% if linuxdo_users_pagination and linuxdo_users_pagination.total and linuxdo_users_pagination.total > linuxdo_users_pagination.per_page %}
+                <div class="d-flex justify-content-center mt-4">
+                    <!-- 手动构建分页链接 -->
+                    <nav aria-label="用户分页">
+                        <ul class="pagination">
+                            <!-- 上一页 -->
+                            {% if linuxdo_users_pagination.page > 1 %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.admin', tab='users', users_page=linuxdo_users_pagination.page-1, users_search=users_search or '') }}">
+                                    上一页
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">上一页</span>
+                            </li>
+                            {% endif %}
+                            
+                            <!-- 页码 -->
+                            {% set current_page = linuxdo_users_pagination.page %}
+                            {% set total_pages = linuxdo_users_pagination.pages %}
+                            
+                            <!-- 第一页 -->
+                            {% if current_page > 3 %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.admin', tab='users', users_page=1, users_search=users_search or '') }}">1</a>
+                            </li>
+                            {% if current_page > 4 %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            {% endif %}
+                            {% endif %}
+                            
+                            <!-- 当前页附近的页码 -->
+                            {% set start_page = current_page - 2 if current_page - 2 > 0 else 1 %}
+                            {% set end_page = current_page + 2 if current_page + 2 < total_pages else total_pages %}
+                            {% for page_num in range(start_page, end_page + 1) %}
+                                {% if page_num == current_page %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('main.admin', tab='users', users_page=page_num, users_search=users_search or '') }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <!-- 最后一页 -->
+                            {% if current_page < total_pages - 2 %}
+                            {% if current_page < total_pages - 3 %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            {% endif %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.admin', tab='users', users_page=total_pages, users_search=users_search or '') }}">{{ total_pages }}</a>
+                            </li>
+                            {% endif %}
+                            
+                            <!-- 下一页 -->
+                            {% if linuxdo_users_pagination.page < linuxdo_users_pagination.pages %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('main.admin', tab='users', users_page=linuxdo_users_pagination.page+1, users_search=users_search or '') }}">
+                                    下一页
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">下一页</span>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
             </div>
             
             <!-- 用户清理管理标签页 -->
@@ -610,6 +728,28 @@ function getTimezoneOffset() {
 document.addEventListener('DOMContentLoaded', function() {
     // 延迟执行以确保所有元素都已渲染
     setTimeout(convertToLocalTime, 100);
+    
+    // 处理标签页激活状态
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab');
+    
+    if (activeTab) {
+        // 激活对应的标签页
+        const tabButton = document.querySelector(`[data-bs-target="#${activeTab}"]`);
+        const tabContent = document.getElementById(activeTab);
+        
+        if (tabButton && tabContent) {
+            // 移除所有活动状态
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('show', 'active');
+            });
+            
+            // 激活指定标签页
+            tabButton.classList.add('active');
+            tabContent.classList.add('show', 'active');
+        }
+    }
 });
 </script>
 {% endblock %}
