@@ -49,6 +49,9 @@ def init_scheduler(app):
         # 注册退出时关闭调度器
         atexit.register(lambda: scheduler.shutdown() if scheduler else None)
 
+        # 立即执行一次清理任务
+        cleanup_users_job()
+
 def cleanup_users_job():
     """定时清理用户的任务函数"""
     from .utils import cleanup_inactive_users
