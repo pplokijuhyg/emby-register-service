@@ -55,7 +55,8 @@ def create_app(test_config=None):
             api_base_url='https://connect.linux.do/',
             client_kwargs={
                 'scope': 'read',
-                'token_endpoint_auth_method': 'client_secret_post'
+                'token_endpoint_auth_method': 'client_secret_post',
+                'code_challenge_method': 'S256'  # 添加PKCE支持
             },
             **session_kwargs
         )

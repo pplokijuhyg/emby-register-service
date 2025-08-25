@@ -55,6 +55,8 @@ class Config:
     # Cookie 安全设置
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = PUBLIC_ACCESS_URL.startswith('https') if PUBLIC_ACCESS_URL else False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_PATH = '/'
     
     # 用户清理功能配置
     ENABLE_USER_CLEANUP = os.getenv('ENABLE_USER_CLEANUP', 'true').lower() == 'true'

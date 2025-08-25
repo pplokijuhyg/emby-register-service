@@ -59,7 +59,11 @@ def linuxdo_login():
         return redirect(url_for('main.login'))
     
     redirect_uri = url_for('main.oauth2_callback', _external=True)
-    return oauth.linuxdo.authorize_redirect(redirect_uri)
+    # 生成一个随机的state参数用于CSRF保护
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+    
+    return oauth.linuxdo.authorize_redirect(redirect_uri, state=state)
 
 @bp.route('/oauth2/callback')
 def oauth2_callback():
@@ -67,7 +71,28 @@ def oauth2_callback():
         flash('Linux.do OAuth2登录功能未启用', 'warning')
         return redirect(url_for('main.login'))
     
+    # 检查是否有错误参数
+    error = request.args.get('error')
+    if error:
+        flash(f'OAuth2授权失败: {error}', 'error')
+        return redirect(url_for('main.linuxdo_login'))
+    
+    # 检查是否有授权码
+    code = request.args.get('code')
+    if not code:
+        flash('OAuth2回调缺少授权码', 'error')
+        return redirect(url_for('main.linuxdo_login'))
+    
     try:
+        # 验证state参数（如果存在）
+        state = request.args.get('state')
+        if state and 'oauth_state' in session:
+            if state != session['oauth_state']:
+                flash('OAuth2状态验证失败，请重试', 'error')
+                return redirect(url_for('main.linuxdo_login'))
+            # 清除已使用的state
+            session.pop('oauth_state', None)
+        
         token = oauth.linuxdo.authorize_access_token()
         user_info = get_linuxdo_user_info(oauth)
         if not user_info:
@@ -88,7 +113,6 @@ def oauth2_callback():
         return redirect(next_url)
         
     except Exception as e:
-        current_app.logger.error(f"OAuth2回调处理失败: {e}")
         flash('OAuth2登录失败，请重试', 'error')
         return redirect(url_for('main.linuxdo_login'))
 
