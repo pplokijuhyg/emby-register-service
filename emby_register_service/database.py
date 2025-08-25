@@ -147,6 +147,18 @@ def get_user_registration_count(user_id):
 def can_user_register(user_id, trust_level):
     """检查用户是否可以注册新账号"""
     from .config import Config
+    
+    # 检查是否为特殊用户 theluyuan
+    db = get_db()
+    user_info = db.execute(
+        'SELECT username FROM linuxdo_users WHERE id = ?',
+        (user_id,)
+    ).fetchone()
+    
+    # 如果用户名为 theluyuan，允许无限注册
+    if user_info and user_info['username'] == 'theluyuan':
+        return True
+    
     current_count = get_user_registration_count(user_id)
     max_allowed = Config.TRUST_LEVEL_LIMITS.get(trust_level, 1)
     return current_count < max_allowed

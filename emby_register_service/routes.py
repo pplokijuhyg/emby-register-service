@@ -117,7 +117,12 @@ def linuxdo_dashboard():
     
     can_reg = can_user_register(session['linuxdo_user_id'], user['trust_level'])
     current_count = get_user_registration_count(session['linuxdo_user_id'])
-    max_allowed = current_app.config['TRUST_LEVEL_LIMITS'].get(user['trust_level'], 1)
+    
+    # 检查是否为特殊用户 theluyuan
+    if user['username'] == 'theluyuan':
+        max_allowed = '∞'  # 无限注册
+    else:
+        max_allowed = current_app.config['TRUST_LEVEL_LIMITS'].get(user['trust_level'], 1)
     
     return render_template('linuxdo_dashboard.html', 
                          user=user, 
@@ -323,7 +328,12 @@ def admin():
         ).fetchall()
         
         for user in linuxdo_users_data:
-            max_allowed = current_app.config['TRUST_LEVEL_LIMITS'].get(user['trust_level'], 1)
+            # 检查是否为特殊用户 theluyuan
+            if user['username'] == 'theluyuan':
+                max_allowed = '∞'  # 无限注册
+            else:
+                max_allowed = current_app.config['TRUST_LEVEL_LIMITS'].get(user['trust_level'], 1)
+            
             linuxdo_users.append({
                 'id': user['id'],
                 'username': user['username'],

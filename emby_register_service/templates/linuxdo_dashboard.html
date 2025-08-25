@@ -39,7 +39,11 @@
                                     <p class="mb-0">
                                         <strong>剩余：</strong>
                                         {% if can_register %}
-                                            <span class="text-success">{{ max_allowed - current_count }} 个</span>
+                                            {% if max_allowed == '∞' %}
+                                                <span class="text-success">∞ 个</span>
+                                            {% else %}
+                                                <span class="text-success">{{ max_allowed - current_count }} 个</span>
+                                            {% endif %}
                                         {% else %}
                                             <span class="text-danger">0 个</span>
                                         {% endif %}
