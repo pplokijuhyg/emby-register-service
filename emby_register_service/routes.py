@@ -197,7 +197,9 @@ def show_requests():
                     if already_voted:
                         flash('您已经投过票了', 'warning')
                     else:
+                        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         db.execute('INSERT INTO votes (user_id, request_id) VALUES (?, ?)', (user_id, request_id))
+                        db.execute('UPDATE requests SET requested_at = ? WHERE id = ?', (current_time, request_id))
                         db.commit()
                         flash('已为该剧集投票成功！', 'success')
                     return redirect(url_for('main.show_requests'))
@@ -220,9 +222,10 @@ def show_requests():
                         if not show_name:
                             flash('无法从豆瓣页面提取剧集名称。', 'danger')
                         else:
+                            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             db.execute(
-                                'INSERT INTO requests (show_name, douban_url, douban_id, poster_image_url, requested_by_user_id, status) VALUES (?, ?, ?, ?, ?, ?)',
-                                (show_name, douban_url, douban_id, poster_image_url, session['linuxdo_user_id'], 'approved')
+                                'INSERT INTO requests (show_name, douban_url, douban_id, poster_image_url, requested_by_user_id, status, requested_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                (show_name, douban_url, douban_id, poster_image_url, session['linuxdo_user_id'], 'approved', current_time)
                             )
                             db.commit()
                             flash('剧集申请已提交！', 'success')
@@ -258,7 +261,9 @@ def vote_request(request_id):
     if already:
         flash('您已经投过票了。', 'warning')
     else:
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         db.execute('INSERT INTO votes (user_id, request_id) VALUES (?, ?)', (user_id, request_id))
+        db.execute('UPDATE requests SET requested_at = ? WHERE id = ?', (current_time, request_id))
         db.commit()
         flash('投票成功！', 'success')
     return redirect(url_for('main.show_requests'))
@@ -780,8 +785,7 @@ def linuxdo_register():
 @bp.route('/rss')
 def public_rss():
     db = get_db()
-    from datetime import datetime, timedelta
-    time_limit = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
+    time_limit = (datetime.now() - timedelta(days=1, hours=1)).strftime('%Y-%m-%d %H:%M:%S')
     requests = db.execute(
         'SELECT show_name, douban_url, poster_image_url, requested_at FROM requests WHERE requested_at > ? ORDER BY requested_at DESC',
         (time_limit,)
