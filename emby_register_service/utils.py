@@ -558,4 +558,18 @@ def cleanup_inactive_users():
     if result['errors']:
         current_app.logger.error(f"清理过程中出现 {len(result['errors'])} 个错误")
     
-    return result 
+    return result
+
+# API密钥管理相关函数
+def generate_api_key():
+    """生成随机API密钥"""
+    import secrets
+    return f"emby_{secrets.token_urlsafe(32)}"
+
+def validate_api_key(key):
+    """验证API密钥有效性"""
+    from .database import get_api_key
+    api_key = get_api_key(key)
+    if api_key and api_key['is_active']:
+        return True
+    return False

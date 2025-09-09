@@ -88,7 +88,7 @@ def init_app(app):
                 douban_url TEXT NOT NULL,
                 douban_id TEXT NOT NULL,
                 poster_image_url TEXT,
-                requested_by_user_id INTEGER NOT NULL,
+                requested_by_user_id INTEGER,
                 requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 status TEXT DEFAULT 'pending',
                 FOREIGN KEY (requested_by_user_id) REFERENCES linuxdo_users (id),
@@ -128,6 +128,22 @@ def init_app(app):
                 deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 deleted_by TEXT DEFAULT 'system',
                 FOREIGN KEY (linuxdo_user_id) REFERENCES linuxdo_users (id)
+            )
+            '''
+        )
+
+        # 创建API密钥表
+        cursor.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_used TIMESTAMP,
+                is_active BOOLEAN DEFAULT 1,
+                request_count INTEGER DEFAULT 0
             )
             '''
         )
@@ -199,4 +215,55 @@ def get_deletion_logs(limit=100, offset=0):
     # 获取总数
     total = db.execute('SELECT COUNT(*) FROM user_deletion_logs').fetchone()[0]
     
-    return logs, total 
+    return logs, total
+
+# API密钥管理相关函数
+def create_api_key(name, description=None):
+    """创建新API密钥"""
+    import secrets
+    db = get_db()
+    key = f"emby_{secrets.token_urlsafe(32)}"
+    cursor = db.execute(
+        'INSERT INTO api_keys (key, name, description) VALUES (?, ?, ?)',
+        (key, name, description)
+    )
+    db.commit()
+    return cursor.lastrowid, key
+
+def get_api_key(key):
+    """获取API密钥信息"""
+    db = get_db()
+    return db.execute('SELECT * FROM api_keys WHERE key = ?', (key,)).fetchone()
+
+def update_api_key_usage(key):
+    """更新API密钥使用记录"""
+    db = get_db()
+    db.execute(
+        'UPDATE api_keys SET last_used = CURRENT_TIMESTAMP, request_count = request_count + 1 WHERE key = ?',
+        (key,)
+    )
+    db.commit()
+
+def get_all_api_keys():
+    """获取所有API密钥"""
+    try:
+        db = get_db()
+        return db.execute('SELECT * FROM api_keys ORDER BY created_at DESC').fetchall()
+    except Exception as e:
+        print(f"Error getting API keys: {e}")
+        return []
+
+def toggle_api_key_status(key_id):
+    """切换API密钥状态"""
+    db = get_db()
+    db.execute(
+        'UPDATE api_keys SET is_active = NOT is_active WHERE id = ?',
+        (key_id,)
+    )
+    db.commit()
+
+def delete_api_key(key_id):
+    """删除API密钥"""
+    db = get_db()
+    db.execute('DELETE FROM api_keys WHERE id = ?', (key_id,))
+    db.commit()

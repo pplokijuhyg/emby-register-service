@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from email.utils import formatdate
 
 from flask import (
-    Blueprint, flash, redirect, render_template, request, session, url_for, Response, current_app
+    Blueprint, flash, redirect, render_template, request, session, url_for, Response, current_app, jsonify
 )
 from flask_paginate import Pagination, get_page_args
 
@@ -19,7 +19,11 @@ from .database import get_db, get_user_registration_count, can_user_register, ge
 from .utils import (
     _generate_signed_token, _verify_signed_token, create_emby_user,
     get_linuxdo_user_info, get_or_create_linuxdo_user, cleanup_inactive_users,
-    cleanup_orphaned_records
+    cleanup_orphaned_records, validate_api_key
+)
+from .database import (
+    create_api_key, get_api_key, update_api_key_usage, get_all_api_keys,
+    toggle_api_key_status, delete_api_key
 )
 from .scheduler import get_scheduler_status, trigger_cleanup_now
 from authlib.integrations.flask_client import OAuth
@@ -432,6 +436,13 @@ def admin():
             'username': token_row['registered_username']
         })
 
+    # 获取API密钥列表
+    try:
+        api_keys = get_all_api_keys()
+    except Exception as e:
+        print(f"Error getting API keys: {e}")
+        api_keys = []
+    
     return render_template(
         'admin.html',
         tokens=processed_tokens,
@@ -452,7 +463,8 @@ def admin():
             'cleanup_orphaned': current_app.config.get('CLEANUP_ORPHANED_RECORDS', True)
         },
         recent_deletions=recent_deletions,
-        total_deletions=total_deletions
+        total_deletions=total_deletions,
+        api_keys=api_keys
     )
 
 @bp.route('/admin/requests', methods=['GET'])
@@ -817,4 +829,162 @@ def public_rss():
 {''.join(rss_items)}
 </channel>
 </rss>'''
-    return Response(rss, mimetype='application/rss+xml') 
+    return Response(rss, mimetype='application/rss+xml')
+
+# --- API Routes ---
+@bp.route('/api/request', methods=['POST'])
+def api_request():
+    """API接口：通过豆瓣链接添加订阅"""
+    # 获取API密钥
+    api_key = request.headers.get('X-API-Key') or request.form.get('api_key') or request.json.get('api_key')
+    
+    if not api_key:
+        return jsonify({'success': False, 'message': '缺少API密钥'}), 401
+    
+    # 验证API密钥
+    if not validate_api_key(api_key):
+        return jsonify({'success': False, 'message': '无效的API密钥'}), 401
+    
+    # 获取豆瓣URL
+    data = request.get_json() if request.is_json else request.form
+    douban_url = data.get('douban_url')
+    
+    if not douban_url:
+        return jsonify({'success': False, 'message': '豆瓣地址是必填项'}), 400
+    
+    # 提取豆瓣ID
+    import re
+    m = re.search(r'/subject/(\d+)', douban_url)
+    douban_id = m.group(1) if m else None
+    
+    if not douban_id:
+        return jsonify({'success': False, 'message': '豆瓣链接格式不正确，无法提取ID'}), 400
+    
+    # 检查是否已存在相同剧集
+    db = get_db()
+    exists = db.execute('SELECT id FROM requests WHERE douban_id = ?', (douban_id,)).fetchone()
+    
+    if exists:
+        # 如果剧集已存在，更新请求时间并返回成功
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        db.execute('UPDATE requests SET requested_at = ? WHERE id = ?', (current_time, exists['id']))
+        db.commit()
+        
+        # 更新API密钥使用记录
+        update_api_key_usage(api_key)
+        
+        return jsonify({
+            'success': True,
+            'message': '剧集申请已更新',
+            'data': {
+                'show_name': '已存在的剧集',
+                'douban_url': douban_url,
+                'douban_id': douban_id,
+                'poster_image_url': None
+            }
+        })
+    
+    # 抓取豆瓣页面
+    cookies = os.getenv('DOUBAN_COOKIES')
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0',
+        'referer': "https://search.douban.com/movie/subject_search?search_text=%E5%BC%82%E4%BA%BA%E4%B9%8B%E4%B8%8B&cat=1002"
+    }
+    
+    if cookies:
+        headers['Cookie'] = cookies
+    
+    try:
+        resp = requests.get(douban_url, headers=headers, timeout=10, verify=False)
+        resp.raise_for_status()
+        html = resp.text
+        
+        # 提取标题
+        title_match = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+        show_name = title_match.group(1) if title_match else None
+        
+        # 提取图片
+        img_match = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+        poster_image_url = img_match.group(1) if img_match else None
+        
+        if not show_name:
+            return jsonify({'success': False, 'message': '无法从豆瓣页面提取剧集名称'}), 400
+        
+        # 保存到数据库
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # 为API请求设置一个固定的用户ID，因为API请求不需要真实用户
+        api_user_id = 1  # 假设ID为1的用户是系统用户或管理员
+        db.execute(
+            'INSERT INTO requests (show_name, douban_url, douban_id, poster_image_url, requested_by_user_id, status, requested_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (show_name, douban_url, douban_id, poster_image_url, api_user_id, 'approved', current_time)
+        )
+        db.commit()
+        
+        # 更新API密钥使用记录
+        update_api_key_usage(api_key)
+        
+        return jsonify({
+            'success': True,
+            'message': '剧集申请已提交',
+            'data': {
+                'show_name': show_name,
+                'douban_url': douban_url,
+                'douban_id': douban_id,
+                'poster_image_url': poster_image_url
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'抓取豆瓣信息失败: {str(e)}'}), 500
+
+# --- API Key Management Routes ---
+@bp.route('/admin/api_keys')
+@login_required
+def admin_api_keys():
+    """API密钥管理页面"""
+    db = get_db()
+    api_keys = get_all_api_keys()
+    return render_template('admin_api_keys.html', api_keys=api_keys)
+
+@bp.route('/admin/api_keys/generate', methods=['POST'])
+@login_required
+def generate_api_key_route():
+    """生成新API密钥"""
+    name = request.form.get('name')
+    description = request.form.get('description')
+    
+    if not name:
+        flash('API密钥名称是必填项', 'danger')
+        return redirect(url_for('main.admin_api_keys'))
+    
+    try:
+        key_id, key = create_api_key(name, description)
+        flash(f'API密钥已生成：{key}', 'success')
+    except Exception as e:
+        flash(f'生成API密钥失败：{str(e)}', 'danger')
+    
+    return redirect(url_for('main.admin_api_keys'))
+
+@bp.route('/admin/api_keys/toggle/<int:key_id>', methods=['POST'])
+@login_required
+def toggle_api_key_route(key_id):
+    """切换API密钥状态"""
+    try:
+        toggle_api_key_status(key_id)
+        flash('API密钥状态已更新', 'success')
+    except Exception as e:
+        flash(f'更新API密钥状态失败：{str(e)}', 'danger')
+    
+    return redirect(url_for('main.admin_api_keys'))
+
+@bp.route('/admin/api_keys/delete/<int:key_id>', methods=['POST'])
+@login_required
+def delete_api_key_route(key_id):
+    """删除API密钥"""
+    try:
+        delete_api_key(key_id)
+        flash('API密钥已删除', 'success')
+    except Exception as e:
+        flash(f'删除API密钥失败：{str(e)}', 'danger')
+    
+    return redirect(url_for('main.admin_api_keys'))

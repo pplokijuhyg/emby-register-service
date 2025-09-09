@@ -1,0 +1,200 @@
+{% extends 'layout.html' %}
+{% block title %}API密钥管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3">API密钥管理</h1>
+        <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回后台管理
+        </a>
+    </div>
+
+    <!-- 生成新API密钥表单 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            生成新API密钥
+        </div>
+        <div class="card-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <form method="post" action="{{ url_for('main.generate_api_key_route') }}">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">名称*</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">描述</label>
+                            <input type="text" class="form-control" id="description" name="description">
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">生成</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- API密钥列表 -->
+    <div class="card">
+        <div class="card-header">
+            API密钥列表
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">名称</th>
+                            <th scope="col">密钥</th>
+                            <th scope="col">描述</th>
+                            <th scope="col">创建时间</th>
+                            <th scope="col">最后使用</th>
+                            <th scope="col">使用次数</th>
+                            <th scope="col">状态</th>
+                            <th scope="col">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key in api_keys %}
+                        <tr>
+                            <td>{{ key.name }}</td>
+                            <td>
+                                <code>{{ key.key[:20] }}...</code>
+                                <button class="btn btn-sm btn-outline-info ms-2" onclick="copyApiKey('{{ key.key }}', this)">
+                                    复制
+                                </button>
+                            </td>
+                            <td>{{ key.description or '—' }}</td>
+                            <td>{{ key.created_at }}</td>
+                            <td>{{ key.last_used or '从未使用' }}</td>
+                            <td>{{ key.request_count }}</td>
+                            <td>
+                                {% if key.is_active %}
+                                    <span class="badge bg-success">激活</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">停用</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <form method="post" action="{{ url_for('main.toggle_api_key_route', key_id=key.id) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm {% if key.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                                            {% if key.is_active %}停用{% else %}激活{% endif %}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{{ url_for('main.delete_api_key_route', key_id=key.id) }}" class="d-inline" onsubmit="return confirm('确定要删除这个API密钥吗？');">
+                                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center">暂无API密钥</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- API使用说明 -->
+    <div class="card mt-4">
+        <div class="card-header">
+            API使用说明
+        </div>
+        <div class="card-body">
+            <h5>接口地址</h5>
+            <p><code>POST {{ request.url_root.rstrip('/') }}/api/request</code></p>
+            
+            <h5>请求参数</h5>
+            <ul>
+                <li><strong>api_key</strong>: API密钥（可以通过Header或参数传递）</li>
+                <li><strong>douban_url</strong>: 豆瓣URL</li>
+            </ul>
+            
+            <h5>请求示例</h5>
+            <pre><code>curl -X POST {{ request.url_root.rstrip('/') }}/api/request \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{"douban_url": "https://movie.douban.com/subject/1234567/"}'</code></pre>
+            
+            <h5>响应示例</h5>
+            <pre><code>{
+  "success": true,
+  "message": "剧集申请已提交",
+  "data": {
+    "show_name": "剧集名称",
+    "douban_url": "https://movie.douban.com/subject/1234567/",
+    "douban_id": "1234567",
+    "poster_image_url": "https://img.example.com/poster.jpg"
+  }
+}</code></pre>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyApiKey(key, buttonElement) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(key).then(() => {
+            showCopyFeedback(buttonElement, true);
+        }).catch(err => {
+            console.error('Modern copy failed: ', err);
+            showCopyFeedback(buttonElement, false);
+        });
+    } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = key;
+        textArea.style.position = "fixed";
+        textArea.style.top = "-9999px";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            const successful = document.execCommand('copy');
+            showCopyFeedback(buttonElement, successful);
+        } catch (err) {
+            console.error('Fallback copy failed: ', err);
+            showCopyFeedback(buttonElement, false);
+        }
+        document.body.removeChild(textArea);
+    }
+}
+
+function showCopyFeedback(buttonElement, isSuccess) {
+    const originalText = buttonElement.innerHTML;
+    if (isSuccess) {
+        buttonElement.innerHTML = '已复制';
+        buttonElement.classList.remove('btn-outline-info');
+        buttonElement.classList.add('btn-success');
+    } else {
+        buttonElement.innerHTML = '失败';
+        buttonElement.classList.remove('btn-outline-info');
+        buttonElement.classList.add('btn-danger');
+    }
+    setTimeout(() => {
+        buttonElement.innerHTML = originalText;
+        if (isSuccess) {
+            buttonElement.classList.remove('btn-success');
+        } else {
+            buttonElement.classList.remove('btn-danger');
+        }
+        buttonElement.classList.add('btn-outline-info');
+    }, 2000);
+}
+</script>
+{% endblock %}
