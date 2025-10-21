@@ -713,6 +713,85 @@ def linuxdo_reset_password():
     db.commit()
     return {"success": True, "new_password": new_password}
 
+@bp.route('/linuxdo/delete_user', methods=['POST'])
+@linuxdo_login_required
+def linuxdo_delete_user():
+    """用户删除自己注册的Emby账号"""
+    emby_username = request.form.get('emby_username')
+    if not emby_username:
+        return {"success": False, "msg": "缺少用户名"}, 400
+    
+    db = get_db()
+    # 验证用户是否有权限删除该账号
+    reg = db.execute(
+        'SELECT emby_user_id, linuxdo_user_id, registered_at FROM user_registrations WHERE emby_username = ?',
+        (emby_username,)
+    ).fetchone()
+    
+    if not reg or reg['linuxdo_user_id'] != session['linuxdo_user_id']:
+        return {"success": False, "msg": "无权限删除该账号"}, 403
+    
+    emby_user_id = reg['emby_user_id']
+    registered_at = reg['registered_at']
+    
+    # 验证用户是否由平台创建（安全检查）
+    from .utils import verify_platform_created_user
+    is_platform_user, verify_reason = verify_platform_created_user(emby_user_id, emby_username)
+    if not is_platform_user:
+        return {"success": False, "msg": f"安全验证失败: {verify_reason}"}, 403
+    
+    # 获取用户信息用于日志记录
+    from .utils import get_emby_user_info
+    user_info = get_emby_user_info(emby_user_id)
+    
+    # 删除Emby中的用户
+    from .utils import delete_emby_user
+    success, error = delete_emby_user(emby_user_id)
+    
+    if success:
+        # 记录删除日志
+        from .database import log_user_deletion
+        from datetime import datetime
+        
+        # 计算统计信息
+        current_time = datetime.now()
+        days_since_reg = None
+        days_since_activity = None
+        
+        if registered_at:
+            try:
+                reg_time = datetime.strptime(registered_at, '%Y-%m-%d %H:%M:%S')
+                days_since_reg = (current_time - reg_time).days
+            except:
+                pass
+        
+        if user_info and user_info.get('last_activity_date'):
+            try:
+                activity_time = datetime.strptime(user_info['last_activity_date'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                days_since_activity = (current_time - activity_time).days
+            except:
+                pass
+        
+        log_user_deletion(
+            emby_user_id=emby_user_id,
+            emby_username=emby_username,
+            linuxdo_user_id=session['linuxdo_user_id'],
+            deletion_reason="用户主动删除：用户通过仪表板自行删除注册的账号",
+            registered_at=registered_at,
+            last_activity_date=user_info['last_activity_date'] if user_info else None,
+            days_since_registration=days_since_reg,
+            days_since_last_activity=days_since_activity,
+            deleted_by=f"user_{session['linuxdo_username']}"
+        )
+        
+        # 删除数据库中的注册记录
+        db.execute('DELETE FROM user_registrations WHERE emby_user_id = ?', (emby_user_id,))
+        db.commit()
+        
+        return {"success": True, "msg": f"账号 {emby_username} 已成功删除"}
+    else:
+        return {"success": False, "msg": f"删除失败: {error}"}, 500
+
 @bp.route('/emby', methods=['GET', 'POST'])
 def emby_register():
     error_msg_template = "您使用的注册链接无效、已被篡改或已过期。"

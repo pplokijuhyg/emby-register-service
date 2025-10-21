@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container">
     <div class="row">
-        <div class="col-md-8">
+        <div>
             <div class="card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -77,7 +77,7 @@
             </div>
         </div>
         
-        <div class="col-md-4">
+        <div>
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">注册历史</h5>
@@ -99,7 +99,8 @@
                                         <td>{{ reg.emby_password or '-' }}</td>
                                         <td>{{ reg.registered_at }}</td>
                                         <td>
-                                            <button class="btn btn-sm btn-warning" onclick="resetPassword('{{ reg.emby_username }}', this)">重置密码</button>
+                                            <button class="btn btn-sm btn-warning me-1" onclick="resetPassword('{{ reg.emby_username }}', this)">重置密码</button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteUser('{{ reg.emby_username }}', this)">删除账号</button>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -137,6 +138,38 @@ function resetPassword(username, btn) {
     .catch(e => {
         btn.disabled = false;
         alert('请求失败');
+    });
+}
+
+function deleteUser(username, btn) {
+    if (!confirm('⚠️ 警告：确定要删除账号 "' + username + '" 吗？\n\n此操作将：\n• 永久删除Emby服务器中的用户账号\n• 删除所有相关数据\n• 释放您的注册配额\n\n此操作不可撤销！')) return;
+    
+    // 二次确认
+    if (!confirm('最后确认：您真的要删除账号 "' + username + '" 吗？')) return;
+    
+    btn.disabled = true;
+    btn.textContent = '删除中...';
+    
+    fetch('/linuxdo/delete_user', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'emby_username=' + encodeURIComponent(username)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.msg + '\n\n页面将自动刷新以更新注册统计。');
+            location.reload();
+        } else {
+            alert('❌ 删除失败：' + data.msg);
+            btn.disabled = false;
+            btn.textContent = '删除账号';
+        }
+    })
+    .catch(e => {
+        alert('❌ 请求失败：' + e.message);
+        btn.disabled = false;
+        btn.textContent = '删除账号';
     });
 }
 </script> 

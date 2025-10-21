@@ -27,7 +27,7 @@
             </div>
             <div class="col-md-6">
                 <div class="alert alert-warning">
-                    <strong>说明：</strong> 此页面显示所有被系统自动删除的用户记录，用于审计和统计分析。
+                    <strong>说明：</strong> 此页面显示所有被删除的用户记录，包括系统自动清理和用户主动删除，用于审计和统计分析。
                 </div>
             </div>
         </div>
@@ -105,8 +105,12 @@
                         <td>
                             {% if log.deleted_by == 'system_cleanup' %}
                                 <span class="badge bg-primary">自动清理</span>
+                            {% elif log.deleted_by == 'system_orphan_cleanup' %}
+                                <span class="badge bg-info">孤儿清理</span>
                             {% elif log.deleted_by == 'admin' %}
                                 <span class="badge bg-secondary">管理员</span>
+                            {% elif log.deleted_by.startswith('user_') %}
+                                <span class="badge bg-success">用户主动删除</span>
                             {% else %}
                                 <span class="badge bg-light text-dark">{{ log.deleted_by }}</span>
                             {% endif %}
@@ -134,13 +138,13 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="text-center">
                             <h5 class="text-primary">{{ total }}</h5>
                             <small class="text-muted">总删除数</small>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="text-center">
                             <h5 class="text-warning">
                                 {{ deletion_logs | selectattr("deleted_by", "equalto", "system_cleanup") | list | length }}
@@ -148,17 +152,33 @@
                             <small class="text-muted">自动清理</small>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="text-center">
                             <h5 class="text-info">
-                                {{ deletion_logs | selectattr("linuxdo_user_id", "none") | list | length }}
+                                {{ deletion_logs | selectattr("deleted_by", "equalto", "system_orphan_cleanup") | list | length }}
                             </h5>
-                            <small class="text-muted">未关联用户</small>
+                            <small class="text-muted">孤儿清理</small>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="text-center">
                             <h5 class="text-success">
+                                {{ deletion_logs | selectattr("deleted_by", "defined") | selectattr("deleted_by", "match", "user_.*") | list | length }}
+                            </h5>
+                            <small class="text-muted">用户主动删除</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h5 class="text-secondary">
+                                {{ deletion_logs | selectattr("deleted_by", "equalto", "admin") | list | length }}
+                            </h5>
+                            <small class="text-muted">管理员删除</small>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <h5 class="text-dark">
                                 {{ deletion_logs | selectattr("linuxdo_user_id", "defined") | selectattr("linuxdo_user_id") | list | length }}
                             </h5>
                             <small class="text-muted">关联用户</small>

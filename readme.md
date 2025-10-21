@@ -55,7 +55,23 @@
    ```
 3. 访问 `http://localhost:5000` 开始使用。
 
-
+.env 模版
+```
+FLASK_SECRET_KEY=xxxxxxxxxxxx
+PUBLIC_ACCESS_URL=https://www.baidu.com
+ADMIN_PASSWORD=admin123
+EMBY_SERVER_URL=http://192.168.3.31:8096
+EMBY_API_KEY=apikey
+COPY_FROM_USER_ID=userid
+LINUXDO_OAUTH_ENABLED=true
+LINUXDO_CLIENT_ID=id
+LINUXDO_CLIENT_SECRET=secret
+USE_PROXY=false
+PROXY_HOST=192.168.3.135
+PROXY_PORT=1084
+DISABLE_SSL_VERIFY=true
+DOUBAN_COOKIES=cookies
+```
 ## 特色说明
 
 - 剧集申请只需填写豆瓣链接，系统自动抓取剧集名和图片。
