@@ -160,14 +160,14 @@
                             <small class="text-muted">孤儿清理</small>
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <div class="text-center">
-                            <h5 class="text-success">
-                                {{ deletion_logs | selectattr("deleted_by", "defined") | selectattr("deleted_by", "match", "user_.*") | list | length }}
-                            </h5>
-                            <small class="text-muted">用户主动删除</small>
-                        </div>
-                    </div>
+                     <div class="col-md-2">
+                         <div class="text-center">
+                             <h5 class="text-success" id="user-delete-count">
+                                 {{ deletion_logs | selectattr("deleted_by", "defined") | selectattr("deleted_by", "ne", "system_cleanup") | selectattr("deleted_by", "ne", "system_orphan_cleanup") | selectattr("deleted_by", "ne", "admin") | list | length }}
+                             </h5>
+                             <small class="text-muted">用户主动删除</small>
+                         </div>
+                     </div>
                     <div class="col-md-2">
                         <div class="text-center">
                             <h5 class="text-secondary">
